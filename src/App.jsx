@@ -10,12 +10,12 @@ const DEFAULT_COLUMNS = [
 ];
 
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
-function AuthScreen() {
+function AuthScreen({ onBack }) {
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null); // { type: "error"|"success", text }
+  const [message, setMessage] = useState(null);
 
   const handleSubmit = async () => {
     if (!email || !password) { setMessage({ type: "error", text: "Please fill in all fields." }); return; }
@@ -44,14 +44,21 @@ function AuthScreen() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#050508", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      {/* Blobs */}
       <div style={{ position: "absolute", top: "5%", left: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
 
       <div style={{ background: "#0a0a14", border: "1px solid #2a2a4a", borderRadius: 24, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
 
+        {/* Back button */}
+        <button onClick={onBack}
+          style={{ position: "absolute", top: 20, left: 20, background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+          onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.3)"; e.target.style.color = "#fff"; }}
+          onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+          ← Back
+        </button>
+
         {/* Logo */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", marginTop: 16 }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: "0 8px 24px rgba(124,111,205,0.35)" }}>💼</div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
@@ -232,24 +239,28 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
 }
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
-function HomeScreen({ onOpen, cards, onSignOut }) {
+function HomeScreen({ onOpen, cards, session, onSignOut }) {
   const [hovered, setHovered] = useState(false);
   const total = Object.values(cards).flat().length;
   const interviews = (cards["interview"] || []).length;
   const offers = (cards["offer"] || []).length;
   return (
-    <div style={{ minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
+    <div style={{ width: "100%", minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
       <div style={{ position: "absolute", top: "10%", left: "15%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.13) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
 
-      {/* Sign out */}
-      <button onClick={onSignOut}
-        style={{ position: "absolute", top: 20, right: 24, background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", zIndex: 1, transition: "all 0.15s" }}
-        onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
-        onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
-        Sign out
-      </button>
+      {/* Top right: sign in or sign out */}
+      <div style={{ position: "absolute", top: 20, right: 24, zIndex: 1 }}>
+        {session ? (
+          <button onClick={onSignOut}
+            style={{ background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
+            onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+            Sign out
+          </button>
+        ) : null}
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(124,111,205,0.1)", border: "1px solid rgba(124,111,205,0.3)", borderRadius: 100, padding: "6px 16px", marginBottom: 32, position: "relative", zIndex: 1 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px #10B981" }} />
@@ -273,9 +284,10 @@ function HomeScreen({ onOpen, cards, onSignOut }) {
         ))}
       </div>
 
+      {/* CTA: if logged in go straight to board, else go to login */}
       <button onClick={onOpen} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
         style={{ padding: "18px 52px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: hovered ? "0 16px 48px rgba(124,111,205,0.55)" : "0 8px 32px rgba(124,111,205,0.4)", transform: hovered ? "translateY(-3px) scale(1.02)" : "none", transition: "all 0.2s", fontFamily: "inherit", marginBottom: 56, position: "relative", zIndex: 1 }}>
-        Open Tracker →
+        {session ? "Open Tracker →" : "Get Started →"}
       </button>
 
       <div style={{ display: "flex", background: "rgba(255,255,255,0.03)", border: "1px solid #2a2a4a", borderRadius: 18, overflow: "hidden", marginBottom: 36, position: "relative", zIndex: 1 }}>
@@ -295,24 +307,28 @@ function HomeScreen({ onOpen, cards, onSignOut }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [session, setSession] = useState(undefined); // undefined = loading
-  const [screen, setScreen] = useState("home");
+  const [session, setSession] = useState(undefined);
+  const [screen, setScreen] = useState("home"); // "home" | "auth" | "board"
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [cards, setCards] = useState({});
   const [modal, setModal] = useState(null);
   const [addingCol, setAddingCol] = useState(false);
   const [newColName, setNewColName] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
 
   // Auth listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // When user logs in, go straight to board
+      if (session) setScreen("board");
+    });
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load data when logged in
+  // Load data when session available
   useEffect(() => {
     if (!session) return;
     async function loadData() {
@@ -336,6 +352,16 @@ export default function App() {
   }, [session]);
 
   const showStatus = (msg) => { setSaveStatus(msg); setTimeout(() => setSaveStatus(null), 2000); };
+
+  const handleOpen = () => {
+    if (session) setScreen("board");
+    else setScreen("auth");
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setCards({}); setColumns(DEFAULT_COLUMNS); setScreen("home");
+  };
 
   const saveCard = async (cardData) => {
     const { columnId } = modal;
@@ -378,40 +404,34 @@ export default function App() {
     setNewColName(""); setAddingCol(false);
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setCards({}); setColumns(DEFAULT_COLUMNS); setScreen("home");
-  };
-
   const total = Object.values(cards).flat().length;
 
-  // Loading auth state
+  // Loading auth
   if (session === undefined) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 16 }}>💼</div>
-        <div style={{ color: "#9090b0", fontSize: 14, letterSpacing: "0.05em" }}>Loading…</div>
+        <div style={{ color: "#9090b0", fontSize: 14 }}>Loading…</div>
       </div>
     </div>
   );
 
-  // Not logged in
-  if (!session) return <AuthScreen />;
+  // Flow: home → auth → board
+  if (screen === "home") return <HomeScreen onOpen={handleOpen} cards={cards} session={session} onSignOut={signOut} />;
+  if (screen === "auth") return <AuthScreen onBack={() => setScreen("home")} />;
 
-  // Loading data
+  // Loading board data
   if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 16 }}>💼</div>
-        <div style={{ color: "#9090b0", fontSize: 14, letterSpacing: "0.05em" }}>Loading your tracker…</div>
+        <div style={{ color: "#9090b0", fontSize: 14 }}>Loading your tracker…</div>
       </div>
     </div>
   );
-
-  if (screen === "home") return <HomeScreen onOpen={() => setScreen("board")} cards={cards} onSignOut={signOut} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
+    <div style={{ width: "100%", minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
       <div style={{ background: "#050508", borderBottom: "1px solid #2a2a4a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <button onClick={() => setScreen("home")}
           style={{ background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
