@@ -9,16 +9,126 @@ const DEFAULT_COLUMNS = [
   { id: "rejected",  label: "Rejected",   color: "#EF4444", position: 4 },
 ];
 
+// ─── Auth Screen ──────────────────────────────────────────────────────────────
+function AuthScreen() {
+  const [tab, setTab] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null); // { type: "error"|"success", text }
+
+  const handleSubmit = async () => {
+    if (!email || !password) { setMessage({ type: "error", text: "Please fill in all fields." }); return; }
+    setLoading(true);
+    setMessage(null);
+    if (tab === "signin") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setMessage({ type: "error", text: error.message });
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setMessage({ type: "error", text: error.message });
+      else setMessage({ type: "success", text: "Account created! Check your email to confirm your account." });
+    }
+    setLoading(false);
+  };
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({ provider: "google" });
+  };
+
+  const inp = {
+    background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10,
+    padding: "12px 14px", fontSize: 14, color: "#fff", outline: "none",
+    fontFamily: "inherit", width: "100%", transition: "border-color 0.15s",
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#050508", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
+      {/* Blobs */}
+      <div style={{ position: "absolute", top: "5%", left: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+      <div style={{ background: "#0a0a14", border: "1px solid #2a2a4a", borderRadius: 24, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* Logo */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: "0 8px 24px rgba(124,111,205,0.35)" }}>💼</div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
+            <div style={{ fontSize: 14, color: "#9090b0", marginTop: 4 }}>{tab === "signin" ? "Sign in to your account" : "Create your account"}</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10, padding: 3, gap: 3 }}>
+          {[["signin", "Sign in"], ["signup", "Create account"]].map(([key, label]) => (
+            <button key={key} onClick={() => { setTab(key); setMessage(null); }}
+              style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", background: tab === key ? "linear-gradient(135deg, #7C6FCD, #a78bfa)" : "transparent", color: tab === key ? "#fff" : "#6060a0" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Fields */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "#6060a0", letterSpacing: "0.08em", textTransform: "uppercase" }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" style={inp}
+              onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+              onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "#6060a0", letterSpacing: "0.08em", textTransform: "uppercase" }}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••" style={inp}
+              onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+              onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          </div>
+        </div>
+
+        {/* Message */}
+        {message && (
+          <div style={{ padding: "12px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: message.type === "error" ? "#1a0a0a" : "#0a1a0f", border: `1px solid ${message.type === "error" ? "#EF444433" : "#10B98133"}`, color: message.type === "error" ? "#EF4444" : "#10B981" }}>
+            {message.text}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button onClick={handleSubmit} disabled={loading}
+          style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: loading ? 0.7 : 1, boxShadow: "0 4px 20px rgba(124,111,205,0.4)", transition: "all 0.2s" }}>
+          {loading ? "Please wait…" : tab === "signin" ? "Sign in →" : "Create account →"}
+        </button>
+
+        {/* Divider */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
+          <span style={{ fontSize: 11, color: "#3a3a5a", fontWeight: 600 }}>OR</span>
+          <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
+        </div>
+
+        {/* Google */}
+        <button onClick={handleGoogle}
+          style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2a2a4a", background: "#07070f", color: "#9090b0", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, transition: "all 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "#3a3a6a"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "#0e0e1e"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a4a"; e.currentTarget.style.color = "#9090b0"; e.currentTarget.style.background = "#07070f"; }}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Card Modal ───────────────────────────────────────────────────────────────
 function CardModal({ card, onSave, onClose, onDelete }) {
   const [form, setForm] = useState(
     card || { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" }
   );
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const inp = {
-    border: "1.5px solid #2a2a3a", borderRadius: 8, padding: "8px 11px",
-    fontSize: 14, outline: "none", color: "#fff", fontFamily: "inherit",
-    width: "100%", background: "#13131f", transition: "border-color 0.15s",
-  };
+  const inp = { border: "1.5px solid #2a2a3a", borderRadius: 8, padding: "8px 11px", fontSize: 14, outline: "none", color: "#fff", fontFamily: "inherit", width: "100%", background: "#13131f", transition: "border-color 0.15s" };
   const labelStyle = { fontSize: 11, fontWeight: 700, color: "#666", letterSpacing: "0.08em", textTransform: "uppercase" };
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -56,9 +166,7 @@ function CardModal({ card, onSave, onClose, onDelete }) {
             onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          {card?.id && (
-            <button onClick={() => onDelete(card.id)} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #3a1a1a", background: "#1a0a0a", color: "#ef4444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
-          )}
+          {card?.id && <button onClick={() => onDelete(card.id)} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #3a1a1a", background: "#1a0a0a", color: "#ef4444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>}
           <button onClick={onClose} style={{ marginLeft: "auto", padding: "10px 20px", borderRadius: 10, border: "1px solid #2a2a3a", background: "#1a1a2e", color: "#888", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           <button onClick={() => {
             if (!form.company?.trim() || !form.role?.trim()) { alert("Company and Role are required."); return; }
@@ -70,6 +178,7 @@ function CardModal({ card, onSave, onClose, onDelete }) {
   );
 }
 
+// ─── Card ─────────────────────────────────────────────────────────────────────
 function Card({ card, onClick }) {
   const [hovered, setHovered] = useState(false);
   const date = card.date ? new Date(card.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
@@ -85,13 +194,13 @@ function Card({ card, onClick }) {
   );
 }
 
+// ─── Column ───────────────────────────────────────────────────────────────────
 function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
   const c = col.color;
   return (
     <div style={{ minWidth: 240, width: 240, flexShrink: 0 }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", background: "#0a0a18", borderRadius: "14px 14px 0 0", border: `1px solid ${c}44`, borderBottom: `2px solid ${c}`, position: "relative" }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, boxShadow: `0 0 8px ${c}`, flexShrink: 0 }} />
         <span style={{ fontWeight: 700, fontSize: 11, color: c, letterSpacing: "0.06em", textTransform: "uppercase" }}>{col.label}</span>
@@ -110,13 +219,10 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
           </>
         )}
       </div>
-      {/* Body */}
       <div style={{ background: "#07070f", border: `1px solid ${c}44`, borderTop: "none", borderRadius: "0 0 14px 14px", padding: 8, display: "flex", flexDirection: "column", gap: 7, minHeight: 80 }}>
         {colCards.map(card => <Card key={card.id} card={card} onClick={() => onEditCard(col.id, card)} />)}
-        <button
-          onClick={() => onAddCard(col.id)}
-          onMouseEnter={() => setAddHovered(true)}
-          onMouseLeave={() => setAddHovered(false)}
+        <button onClick={() => onAddCard(col.id)}
+          onMouseEnter={() => setAddHovered(true)} onMouseLeave={() => setAddHovered(false)}
           style={{ background: addHovered ? c + "0a" : "transparent", border: `1px dashed ${addHovered ? c : c + "66"}`, borderRadius: 10, padding: "9px 12px", cursor: "pointer", fontSize: 12, color: addHovered ? c : c + "99", textAlign: "center", transition: "all 0.15s", fontFamily: "inherit", fontWeight: 600 }}>
           + Add card
         </button>
@@ -125,7 +231,8 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
   );
 }
 
-function HomeScreen({ onOpen, cards }) {
+// ─── Home Screen ──────────────────────────────────────────────────────────────
+function HomeScreen({ onOpen, cards, onSignOut }) {
   const [hovered, setHovered] = useState(false);
   const total = Object.values(cards).flat().length;
   const interviews = (cards["interview"] || []).length;
@@ -135,6 +242,14 @@ function HomeScreen({ onOpen, cards }) {
       <div style={{ position: "absolute", top: "10%", left: "15%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.13) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
+
+      {/* Sign out */}
+      <button onClick={onSignOut}
+        style={{ position: "absolute", top: 20, right: 24, background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", zIndex: 1, transition: "all 0.15s" }}
+        onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
+        onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+        Sign out
+      </button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(124,111,205,0.1)", border: "1px solid rgba(124,111,205,0.3)", borderRadius: 100, padding: "6px 16px", marginBottom: 32, position: "relative", zIndex: 1 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px #10B981" }} />
@@ -164,11 +279,7 @@ function HomeScreen({ onOpen, cards }) {
       </button>
 
       <div style={{ display: "flex", background: "rgba(255,255,255,0.03)", border: "1px solid #2a2a4a", borderRadius: 18, overflow: "hidden", marginBottom: 36, position: "relative", zIndex: 1 }}>
-        {[
-          { num: total, label: "Applications", icon: "📋" },
-          { num: interviews, label: "Interviews", icon: "🎯" },
-          { num: offers, label: "Offers", icon: "🏆" },
-        ].map(({ num, label, icon }, i) => (
+        {[{ num: total, label: "Applications", icon: "📋" }, { num: interviews, label: "Interviews", icon: "🎯" }, { num: offers, label: "Offers", icon: "🏆" }].map(({ num, label, icon }, i) => (
           <div key={label} style={{ textAlign: "center", padding: "22px 44px", borderRight: i < 2 ? "1px solid #2a2a4a" : "none" }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
             <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", letterSpacing: "-0.03em" }}>{num}</div>
@@ -177,14 +288,14 @@ function HomeScreen({ onOpen, cards }) {
         ))}
       </div>
 
-      <p style={{ margin: 0, fontSize: 11, color: "#4a4a6a", letterSpacing: "0.1em", fontWeight: 600, position: "relative", zIndex: 1 }}>
-        FREE · SYNC ACROSS DEVICES · NO SPREADSHEETS
-      </p>
+      <p style={{ margin: 0, fontSize: 11, color: "#4a4a6a", letterSpacing: "0.1em", fontWeight: 600, position: "relative", zIndex: 1 }}>FREE · SYNC ACROSS DEVICES · NO SPREADSHEETS</p>
     </div>
   );
 }
 
+// ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = loading
   const [screen, setScreen] = useState("home");
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [cards, setCards] = useState({});
@@ -194,13 +305,23 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState(null);
 
+  // Auth listener
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load data when logged in
+  useEffect(() => {
+    if (!session) return;
     async function loadData() {
       setLoading(true);
-      const { data: colData } = await supabase.from("columns_config").select("*").order("position");
-      const { data: appData } = await supabase.from("applications").select("*").order("created_at");
+      const userId = session.user.id;
+      const { data: colData } = await supabase.from("columns_config").select("*").eq("user_id", userId).order("position");
+      const { data: appData } = await supabase.from("applications").select("*").eq("user_id", userId).order("created_at");
       if (colData && colData.length > 0) setColumns(colData);
-      else await supabase.from("columns_config").insert(DEFAULT_COLUMNS);
+      else await supabase.from("columns_config").insert(DEFAULT_COLUMNS.map(c => ({ ...c, user_id: userId })));
       if (appData) {
         const grouped = {};
         appData.forEach(app => {
@@ -212,13 +333,14 @@ export default function App() {
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [session]);
 
   const showStatus = (msg) => { setSaveStatus(msg); setTimeout(() => setSaveStatus(null), 2000); };
 
   const saveCard = async (cardData) => {
     const { columnId } = modal;
-    const row = { id: cardData.id, column_id: columnId, company: cardData.company, role: cardData.role, location: cardData.location || null, salary: cardData.salary || null, url: cardData.url || null, date: cardData.date || null, notes: cardData.notes || null };
+    const userId = session.user.id;
+    const row = { id: cardData.id, column_id: columnId, user_id: userId, company: cardData.company, role: cardData.role, location: cardData.location || null, salary: cardData.salary || null, url: cardData.url || null, date: cardData.date || null, notes: cardData.notes || null };
     if (modal.card?.id) {
       await supabase.from("applications").update(row).eq("id", cardData.id);
       setCards(prev => ({ ...prev, [columnId]: (prev[columnId] || []).map(c => c.id === cardData.id ? { ...c, ...row } : c) }));
@@ -250,15 +372,33 @@ export default function App() {
     if (!newColName.trim()) return;
     const COLORS = ["#06B6D4", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
     const id = newColName.toLowerCase().replace(/\s+/g, "_") + "_" + Date.now();
-    const newCol = { id, label: newColName.trim(), color: COLORS[columns.length % COLORS.length], position: columns.length };
+    const newCol = { id, label: newColName.trim(), color: COLORS[columns.length % COLORS.length], position: columns.length, user_id: session.user.id };
     await supabase.from("columns_config").insert(newCol);
     setColumns(prev => [...prev, newCol]);
-    setNewColName("");
-    setAddingCol(false);
+    setNewColName(""); setAddingCol(false);
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setCards({}); setColumns(DEFAULT_COLUMNS); setScreen("home");
   };
 
   const total = Object.values(cards).flat().length;
 
+  // Loading auth state
+  if (session === undefined) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>💼</div>
+        <div style={{ color: "#9090b0", fontSize: 14, letterSpacing: "0.05em" }}>Loading…</div>
+      </div>
+    </div>
+  );
+
+  // Not logged in
+  if (!session) return <AuthScreen />;
+
+  // Loading data
   if (loading) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
@@ -268,11 +408,10 @@ export default function App() {
     </div>
   );
 
-  if (screen === "home") return <HomeScreen onOpen={() => setScreen("board")} cards={cards} />;
+  if (screen === "home") return <HomeScreen onOpen={() => setScreen("board")} cards={cards} onSignOut={signOut} />;
 
   return (
     <div style={{ minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      {/* Topbar */}
       <div style={{ background: "#050508", borderBottom: "1px solid #2a2a4a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <button onClick={() => setScreen("home")}
           style={{ background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
@@ -284,17 +423,20 @@ export default function App() {
           <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
           <div style={{ fontSize: 12, color: "#9090b0", marginTop: 2 }}>{total === 0 ? "No applications yet — add your first!" : `${total} application${total !== 1 ? "s" : ""} tracked`}</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {columns.map(col => {
             const count = (cards[col.id] || []).length;
-            return count > 0 ? (
-              <span key={col.id} style={{ background: col.color + "18", color: col.color, border: `1px solid ${col.color}33`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{col.label}: {count}</span>
-            ) : null;
+            return count > 0 ? <span key={col.id} style={{ background: col.color + "18", color: col.color, border: `1px solid ${col.color}33`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{col.label}: {count}</span> : null;
           })}
+          <button onClick={signOut}
+            style={{ background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", marginLeft: 8, transition: "all 0.15s" }}
+            onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
+            onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+            Sign out
+          </button>
         </div>
       </div>
 
-      {/* Board */}
       <div style={{ display: "flex", gap: 14, padding: "28px 24px", overflowX: "auto", alignItems: "flex-start", flex: 1 }}>
         {columns.map(col => (
           <Column key={col.id} col={col} colCards={cards[col.id] || []}
