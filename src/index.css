@@ -4,14 +4,22 @@
   padding: 0;
 }
 
-html, body, #root {
+html {
   width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
+  height: 100%;
 }
 
 body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
 }
