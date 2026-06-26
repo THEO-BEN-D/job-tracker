@@ -239,11 +239,8 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
 }
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
-function HomeScreen({ onOpen, cards, session, onSignOut }) {
+function HomeScreen({ onOpen, session, onSignOut }) {
   const [hovered, setHovered] = useState(false);
-  const total = Object.values(cards).flat().length;
-  const interviews = (cards["interview"] || []).length;
-  const offers = (cards["offer"] || []).length;
   return (
     <div style={{ width: "100%", minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
       <div style={{ position: "absolute", top: "10%", left: "15%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.13) 0%, transparent 70%)", pointerEvents: "none" }} />
@@ -286,19 +283,9 @@ function HomeScreen({ onOpen, cards, session, onSignOut }) {
 
       {/* CTA: if logged in go straight to board, else go to login */}
       <button onClick={onOpen} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-        style={{ padding: "18px 52px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: hovered ? "0 16px 48px rgba(124,111,205,0.55)" : "0 8px 32px rgba(124,111,205,0.4)", transform: hovered ? "translateY(-3px) scale(1.02)" : "none", transition: "all 0.2s", fontFamily: "inherit", marginBottom: 56, position: "relative", zIndex: 1 }}>
+        style={{ padding: "18px 52px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: hovered ? "0 16px 48px rgba(124,111,205,0.55)" : "0 8px 32px rgba(124,111,205,0.4)", transform: hovered ? "translateY(-3px) scale(1.02)" : "none", transition: "all 0.2s", fontFamily: "inherit", marginBottom: 48, position: "relative", zIndex: 1 }}>
         {session ? "Open Tracker →" : "Get Started →"}
       </button>
-
-      <div style={{ display: "flex", background: "rgba(255,255,255,0.03)", border: "1px solid #2a2a4a", borderRadius: 18, overflow: "hidden", marginBottom: 36, position: "relative", zIndex: 1 }}>
-        {[{ num: total, label: "Applications", icon: "📋" }, { num: interviews, label: "Interviews", icon: "🎯" }, { num: offers, label: "Offers", icon: "🏆" }].map(({ num, label, icon }, i) => (
-          <div key={label} style={{ textAlign: "center", padding: "22px 44px", borderRight: i < 2 ? "1px solid #2a2a4a" : "none" }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", letterSpacing: "-0.03em" }}>{num}</div>
-            <div style={{ fontSize: 11, color: "#9090b0", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6, fontWeight: 700 }}>{label}</div>
-          </div>
-        ))}
-      </div>
 
       <p style={{ margin: 0, fontSize: 11, color: "#4a4a6a", letterSpacing: "0.1em", fontWeight: 600, position: "relative", zIndex: 1 }}>FREE · SYNC ACROSS DEVICES · NO SPREADSHEETS</p>
     </div>
@@ -417,7 +404,7 @@ export default function App() {
   );
 
   // Flow: home → auth → board
-  if (screen === "home") return <HomeScreen onOpen={handleOpen} cards={cards} session={session} onSignOut={signOut} />;
+  if (screen === "home") return <HomeScreen onOpen={handleOpen} session={session} onSignOut={signOut} />;
   if (screen === "auth") return <AuthScreen onBack={() => setScreen("home")} />;
 
   // Loading board data
