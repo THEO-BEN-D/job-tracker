@@ -75,14 +75,12 @@ function Card({ card, onClick }) {
   const date = card.date ? new Date(card.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
   return (
     <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ background: hovered ? "#16162a" : "#0e0e1a", borderRadius: 12, padding: "12px 14px", boxShadow: hovered ? "0 8px 24px rgba(0,0,0,0.4)" : "none", cursor: "pointer", border: `1px solid ${hovered ? "#7C6FCD44" : "#2a2a3a"}`, transform: hovered ? "translateY(-2px)" : "none", transition: "all 0.15s", display: "flex", flexDirection: "column", gap: 4 }}>
+      style={{ background: hovered ? "#13132a" : "#0e0e1e", borderRadius: 11, padding: "12px 13px", cursor: "pointer", border: "1px solid #2a2a4a", transform: hovered ? "translateY(-2px)" : "none", boxShadow: hovered ? "0 8px 24px rgba(0,0,0,0.4)" : "none", transition: "all 0.15s", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>{card.company}</div>
-      <div style={{ fontSize: 12, color: "#888" }}>{card.role}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-        {card.location && <div style={{ fontSize: 11, color: "#555" }}>📍 {card.location}</div>}
-        {date && <div style={{ fontSize: 11, color: "#444", marginLeft: "auto" }}>{date}</div>}
-      </div>
+      <div style={{ fontSize: 12, color: "#7070a0" }}>{card.role}</div>
+      {card.location && <div style={{ fontSize: 11, color: "#555" }}>📍 {card.location}</div>}
       {card.salary && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>{card.salary}</div>}
+      {date && <div style={{ fontSize: 10, color: "#555", marginTop: 2 }}>{date}</div>}
     </div>
   );
 }
@@ -90,14 +88,16 @@ function Card({ card, onClick }) {
 function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
+  const c = col.color;
   return (
     <div style={{ minWidth: 240, width: 240, flexShrink: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#0e0e1a", borderRadius: "14px 14px 0 0", border: "1px solid #2a2a3a", borderBottom: `2px solid ${col.color}`, position: "relative" }}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, boxShadow: `0 0 8px ${col.color}` }} />
-        <span style={{ fontWeight: 700, fontSize: 12, color: "#ccc", letterSpacing: "0.05em", textTransform: "uppercase" }}>{col.label}</span>
-        <span style={{ background: col.color + "22", color: col.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700, marginLeft: 2 }}>{colCards.length}</span>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", background: "#0a0a18", borderRadius: "14px 14px 0 0", border: `1px solid ${c}44`, borderBottom: `2px solid ${c}`, position: "relative" }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, boxShadow: `0 0 8px ${c}`, flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, fontSize: 11, color: c, letterSpacing: "0.06em", textTransform: "uppercase" }}>{col.label}</span>
+        <span style={{ background: c + "22", color: c, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700, marginLeft: 2 }}>{colCards.length}</span>
         <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#444", fontSize: 16, lineHeight: 1 }}>⋯</button>
+          style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: c + "88", fontSize: 16, lineHeight: 1 }}>⋯</button>
         {menuOpen && (
           <>
             <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setMenuOpen(false)} />
@@ -110,11 +110,14 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
           </>
         )}
       </div>
-      <div style={{ background: "#0a0a14", border: "1px solid #2a2a3a", borderTop: "none", borderRadius: "0 0 14px 14px", padding: 8, display: "flex", flexDirection: "column", gap: 6, minHeight: 80 }}>
+      {/* Body */}
+      <div style={{ background: "#07070f", border: `1px solid ${c}44`, borderTop: "none", borderRadius: "0 0 14px 14px", padding: 8, display: "flex", flexDirection: "column", gap: 7, minHeight: 80 }}>
         {colCards.map(card => <Card key={card.id} card={card} onClick={() => onEditCard(col.id, card)} />)}
-        <button onClick={() => onAddCard(col.id)}
-          onMouseEnter={() => setAddHovered(true)} onMouseLeave={() => setAddHovered(false)}
-          style={{ background: addHovered ? "#16162a" : "transparent", border: `1px dashed ${addHovered ? col.color + "88" : "#2a2a3a"}`, borderRadius: 10, padding: "8px 12px", cursor: "pointer", fontSize: 12, color: addHovered ? col.color : "#444", textAlign: "center", transition: "all 0.15s", fontFamily: "inherit", fontWeight: 600 }}>
+        <button
+          onClick={() => onAddCard(col.id)}
+          onMouseEnter={() => setAddHovered(true)}
+          onMouseLeave={() => setAddHovered(false)}
+          style={{ background: addHovered ? c + "0a" : "transparent", border: `1px dashed ${addHovered ? c : c + "66"}`, borderRadius: 10, padding: "9px 12px", cursor: "pointer", fontSize: 12, color: addHovered ? c : c + "99", textAlign: "center", transition: "all 0.15s", fontFamily: "inherit", fontWeight: 600 }}>
           + Add card
         </button>
       </div>
@@ -127,32 +130,26 @@ function HomeScreen({ onOpen, cards }) {
   const total = Object.values(cards).flat().length;
   const interviews = (cards["interview"] || []).length;
   const offers = (cards["offer"] || []).length;
-
   return (
     <div style={{ minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      {/* Glow blobs */}
       <div style={{ position: "absolute", top: "10%", left: "15%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.13) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
 
-      {/* Badge */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(124,111,205,0.1)", border: "1px solid rgba(124,111,205,0.3)", borderRadius: 100, padding: "6px 16px", marginBottom: 32, position: "relative", zIndex: 1 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px #10B981" }} />
         <span style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, letterSpacing: "0.08em" }}>YOUR CAREER COMMAND CENTER</span>
       </div>
 
-      {/* Headline */}
       <h1 style={{ margin: 0, fontSize: "clamp(42px, 8vw, 76px)", fontWeight: 900, letterSpacing: "-0.04em", textAlign: "center", lineHeight: 1.0, marginBottom: 24, position: "relative", zIndex: 1 }}>
         <span style={{ color: "#fff", display: "block" }}>Land your</span>
         <span style={{ background: "linear-gradient(135deg, #7C6FCD, #a78bfa, #c4b5fd)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", display: "block" }}>dream job.</span>
       </h1>
 
-      {/* Subtitle */}
       <p style={{ margin: 0, fontSize: 18, color: "#9090b0", marginBottom: 40, textAlign: "center", lineHeight: 1.7, maxWidth: 420, position: "relative", zIndex: 1 }}>
         Track every application, follow-up, and offer — all in one place. Never lose track of an opportunity again.
       </p>
 
-      {/* Feature pills */}
       <div style={{ display: "flex", gap: 10, marginBottom: 44, flexWrap: "wrap", justifyContent: "center", position: "relative", zIndex: 1 }}>
         {["Kanban board", "Syncs across devices", "No spreadsheets", "Completely free"].map(f => (
           <div key={f} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: "1px solid #2a2a4a", borderRadius: 100, padding: "8px 16px", fontSize: 12, color: "#8888aa", fontWeight: 500 }}>
@@ -161,13 +158,11 @@ function HomeScreen({ onOpen, cards }) {
         ))}
       </div>
 
-      {/* CTA */}
       <button onClick={onOpen} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
         style={{ padding: "18px 52px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: hovered ? "0 16px 48px rgba(124,111,205,0.55)" : "0 8px 32px rgba(124,111,205,0.4)", transform: hovered ? "translateY(-3px) scale(1.02)" : "none", transition: "all 0.2s", fontFamily: "inherit", marginBottom: 56, position: "relative", zIndex: 1 }}>
         Open Tracker →
       </button>
 
-      {/* Stats */}
       <div style={{ display: "flex", background: "rgba(255,255,255,0.03)", border: "1px solid #2a2a4a", borderRadius: 18, overflow: "hidden", marginBottom: 36, position: "relative", zIndex: 1 }}>
         {[
           { num: total, label: "Applications", icon: "📋" },
@@ -182,7 +177,6 @@ function HomeScreen({ onOpen, cards }) {
         ))}
       </div>
 
-      {/* Tagline */}
       <p style={{ margin: 0, fontSize: 11, color: "#4a4a6a", letterSpacing: "0.1em", fontWeight: 600, position: "relative", zIndex: 1 }}>
         FREE · SYNC ACROSS DEVICES · NO SPREADSHEETS
       </p>
@@ -269,7 +263,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 16 }}>💼</div>
-        <div style={{ color: "#444", fontSize: 14, letterSpacing: "0.05em" }}>Loading your tracker…</div>
+        <div style={{ color: "#9090b0", fontSize: 14, letterSpacing: "0.05em" }}>Loading your tracker…</div>
       </div>
     </div>
   );
@@ -278,16 +272,17 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      <div style={{ background: "#0a0a14", borderBottom: "1px solid #2a2a3a", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      {/* Topbar */}
+      <div style={{ background: "#050508", borderBottom: "1px solid #2a2a4a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <button onClick={() => setScreen("home")}
-          style={{ background: "none", border: "1px solid #2a2a3a", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, color: "#666", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-          onMouseEnter={e => { e.target.style.borderColor = "#7C6FCD"; e.target.style.color = "#a78bfa"; }}
-          onMouseLeave={e => { e.target.style.borderColor = "#2a2a3a"; e.target.style.color = "#666"; }}>
+          style={{ background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+          onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.5)"; e.target.style.background = "rgba(255,255,255,0.05)"; }}
+          onMouseLeave={e => { e.target.style.borderColor = "rgba(255,255,255,0.2)"; e.target.style.background = "none"; }}>
           ← Home
         </button>
         <div style={{ marginLeft: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
-          <div style={{ fontSize: 12, color: "#9090b0" }}>{total === 0 ? "No applications yet — add your first!" : `${total} application${total !== 1 ? "s" : ""} tracked`}</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
+          <div style={{ fontSize: 12, color: "#9090b0", marginTop: 2 }}>{total === 0 ? "No applications yet — add your first!" : `${total} application${total !== 1 ? "s" : ""} tracked`}</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
           {columns.map(col => {
@@ -299,7 +294,8 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 14, padding: "24px 20px", overflowX: "auto", alignItems: "flex-start", flex: 1 }}>
+      {/* Board */}
+      <div style={{ display: "flex", gap: 14, padding: "28px 24px", overflowX: "auto", alignItems: "flex-start", flex: 1 }}>
         {columns.map(col => (
           <Column key={col.id} col={col} colCards={cards[col.id] || []}
             onAddCard={(colId) => setModal({ columnId: colId, card: null })}
@@ -320,9 +316,9 @@ export default function App() {
             </div>
           ) : (
             <button onClick={() => setAddingCol(true)}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 14, border: "1px dashed #2a2a3a", background: "transparent", color: "#444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.target.style.borderColor = "#7C6FCD88"; e.target.style.color = "#a78bfa"; e.target.style.background = "#7C6FCD11"; }}
-              onMouseLeave={e => { e.target.style.borderColor = "#2a2a3a"; e.target.style.color = "#444"; e.target.style.background = "transparent"; }}>
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 14, border: "1px dashed #3a3a5a", background: "transparent", color: "#6060a0", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={e => { e.target.style.borderColor = "#7C6FCD"; e.target.style.color = "#a78bfa"; e.target.style.background = "#7C6FCD0a"; }}
+              onMouseLeave={e => { e.target.style.borderColor = "#3a3a5a"; e.target.style.color = "#6060a0"; e.target.style.background = "transparent"; }}>
               + Add Column
             </button>
           )}
