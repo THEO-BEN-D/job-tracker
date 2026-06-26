@@ -9,25 +9,158 @@ const DEFAULT_COLUMNS = [
   { id: "rejected",  label: "Rejected",   color: "#EF4444", position: 4 },
 ];
 
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const inputStyle = {
+  background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10,
+  padding: "12px 14px", fontSize: 14, color: "#fff", outline: "none",
+  fontFamily: "inherit", width: "100%", transition: "border-color 0.15s",
+};
+const labelStyle = { fontSize: 11, fontWeight: 700, color: "#6060a0", letterSpacing: "0.08em", textTransform: "uppercase" };
+const btnPrimary = { width: "100%", padding: 14, borderRadius: 12, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 20px rgba(124,111,205,0.4)", transition: "all 0.2s" };
+
+function AuthCard({ children }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#050508", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
+      <div style={{ position: "absolute", top: "5%", left: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ background: "#0a0a14", border: "1px solid #2a2a4a", borderRadius: 24, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 22 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function LogoRow({ icon, title, sub }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", marginTop: 8 }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: "0 8px 24px rgba(124,111,205,0.35)" }}>{icon}</div>
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{title}</div>
+        <div style={{ fontSize: 14, color: "#9090b0", marginTop: 4 }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function BackBtn({ onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{ position: "absolute", top: 20, left: 20, background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+      onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.3)"; e.target.style.color = "#fff"; }}
+      onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+      ← Back
+    </button>
+  );
+}
+
+function Message({ msg }) {
+  if (!msg) return null;
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "error" ? "#1a0a0a" : "#0a1a0f", border: `1px solid ${msg.type === "error" ? "#EF444433" : "#10B98133"}`, color: msg.type === "error" ? "#EF4444" : "#10B981" }}>
+      {msg.text}
+    </div>
+  );
+}
+
+// ─── Forgot Password Screen ───────────────────────────────────────────────────
+function ForgotPasswordScreen({ onBack }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const handleSubmit = async () => {
+    if (!email) { setMsg({ type: "error", text: "Please enter your email." }); return; }
+    setLoading(true); setMsg(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "?reset=true",
+    });
+    if (error) setMsg({ type: "error", text: error.message });
+    else setMsg({ type: "success", text: "✓ Check your inbox! We've sent a password reset link to your email." });
+    setLoading(false);
+  };
+
+  return (
+    <AuthCard>
+      <BackBtn onClick={onBack} />
+      <LogoRow icon="🔑" title="Reset password" sub="We'll send you a reset link" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={labelStyle}>Email</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com" style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+          onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+      </div>
+      <Message msg={msg} />
+      <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }}>
+        {loading ? "Sending…" : "Send reset link →"}
+      </button>
+    </AuthCard>
+  );
+}
+
+// ─── Set New Password Screen ──────────────────────────────────────────────────
+function SetNewPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const handleSubmit = async () => {
+    if (!password || !confirm) { setMsg({ type: "error", text: "Please fill in both fields." }); return; }
+    if (password !== confirm) { setMsg({ type: "error", text: "Passwords don't match." }); return; }
+    if (password.length < 6) { setMsg({ type: "error", text: "Password must be at least 6 characters." }); return; }
+    setLoading(true); setMsg(null);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) setMsg({ type: "error", text: error.message });
+    else { setMsg({ type: "success", text: "✓ Password updated! Redirecting…" }); setTimeout(onDone, 1500); }
+    setLoading(false);
+  };
+
+  return (
+    <AuthCard>
+      <LogoRow icon="🔒" title="New password" sub="Choose a strong password" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={labelStyle}>New password</label>
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+          placeholder="••••••••" style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+          onBlur={e => e.target.style.borderColor = "#2a2a4a"} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={labelStyle}>Confirm password</label>
+        <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+          placeholder="••••••••" style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+          onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+      </div>
+      <Message msg={msg} />
+      <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }}>
+        {loading ? "Updating…" : "Update password →"}
+      </button>
+    </AuthCard>
+  );
+}
+
 // ─── Auth Screen ──────────────────────────────────────────────────────────────
-function AuthScreen({ onBack }) {
+function AuthScreen({ onBack, onForgotPassword }) {
   const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [msg, setMsg] = useState(null);
 
   const handleSubmit = async () => {
-    if (!email || !password) { setMessage({ type: "error", text: "Please fill in all fields." }); return; }
-    setLoading(true);
-    setMessage(null);
+    if (!email || !password) { setMsg({ type: "error", text: "Please fill in all fields." }); return; }
+    setLoading(true); setMsg(null);
     if (tab === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setMessage({ type: "error", text: error.message });
+      if (error) setMsg({ type: "error", text: error.message });
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setMessage({ type: "error", text: error.message });
-      else setMessage({ type: "success", text: "Account created! Check your email to confirm your account." });
+      if (error) setMsg({ type: "error", text: error.message });
+      else setMsg({ type: "success", text: "✓ Account created! Check your email to confirm your account." });
     }
     setLoading(false);
   };
@@ -36,96 +169,69 @@ function AuthScreen({ onBack }) {
     await supabase.auth.signInWithOAuth({ provider: "google" });
   };
 
-  const inp = {
-    background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10,
-    padding: "12px 14px", fontSize: 14, color: "#fff", outline: "none",
-    fontFamily: "inherit", width: "100%", transition: "border-color 0.15s",
-  };
-
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#050508", position: "relative", overflow: "hidden", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      <div style={{ position: "absolute", top: "5%", left: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%)", pointerEvents: "none" }} />
+    <AuthCard>
+      <BackBtn onClick={onBack} />
+      <LogoRow icon="💼" title="Job Tracker" sub={tab === "signin" ? "Sign in to your account" : "Create your account"} />
 
-      <div style={{ background: "#0a0a14", border: "1px solid #2a2a4a", borderRadius: 24, padding: 40, width: "100%", maxWidth: 420, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
-
-        {/* Back button */}
-        <button onClick={onBack}
-          style={{ position: "absolute", top: 20, left: 20, background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-          onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.3)"; e.target.style.color = "#fff"; }}
-          onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
-          ← Back
-        </button>
-
-        {/* Logo */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", marginTop: 16 }}>
-          <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: "0 8px 24px rgba(124,111,205,0.35)" }}>💼</div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job Tracker</div>
-            <div style={{ fontSize: 14, color: "#9090b0", marginTop: 4 }}>{tab === "signin" ? "Sign in to your account" : "Create your account"}</div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10, padding: 3, gap: 3 }}>
-          {[["signin", "Sign in"], ["signup", "Create account"]].map(([key, label]) => (
-            <button key={key} onClick={() => { setTab(key); setMessage(null); }}
-              style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", background: tab === key ? "linear-gradient(135deg, #7C6FCD, #a78bfa)" : "transparent", color: tab === key ? "#fff" : "#6060a0" }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Fields */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: "#6060a0", letterSpacing: "0.08em", textTransform: "uppercase" }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com" style={inp}
-              onFocus={e => e.target.style.borderColor = "#7C6FCD"}
-              onBlur={e => e.target.style.borderColor = "#2a2a4a"}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: "#6060a0", letterSpacing: "0.08em", textTransform: "uppercase" }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••" style={inp}
-              onFocus={e => e.target.style.borderColor = "#7C6FCD"}
-              onBlur={e => e.target.style.borderColor = "#2a2a4a"}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
-          </div>
-        </div>
-
-        {/* Message */}
-        {message && (
-          <div style={{ padding: "12px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: message.type === "error" ? "#1a0a0a" : "#0a1a0f", border: `1px solid ${message.type === "error" ? "#EF444433" : "#10B98133"}`, color: message.type === "error" ? "#EF4444" : "#10B981" }}>
-            {message.text}
-          </div>
-        )}
-
-        {/* Submit */}
-        <button onClick={handleSubmit} disabled={loading}
-          style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: loading ? 0.7 : 1, boxShadow: "0 4px 20px rgba(124,111,205,0.4)", transition: "all 0.2s" }}>
-          {loading ? "Please wait…" : tab === "signin" ? "Sign in →" : "Create account →"}
-        </button>
-
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
-          <span style={{ fontSize: 11, color: "#3a3a5a", fontWeight: 600 }}>OR</span>
-          <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
-        </div>
-
-        {/* Google */}
-        <button onClick={handleGoogle}
-          style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2a2a4a", background: "#07070f", color: "#9090b0", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, transition: "all 0.15s" }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#3a3a6a"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "#0e0e1e"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a4a"; e.currentTarget.style.color = "#9090b0"; e.currentTarget.style.background = "#07070f"; }}>
-          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
-          Continue with Google
-        </button>
+      {/* Tabs */}
+      <div style={{ display: "flex", background: "#07070f", border: "1px solid #2a2a4a", borderRadius: 10, padding: 3, gap: 3 }}>
+        {[["signin", "Sign in"], ["signup", "Create account"]].map(([key, label]) => (
+          <button key={key} onClick={() => { setTab(key); setMsg(null); }}
+            style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", background: tab === key ? "linear-gradient(135deg, #7C6FCD, #a78bfa)" : "transparent", color: tab === key ? "#fff" : "#6060a0" }}>
+            {label}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {/* Email */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <label style={labelStyle}>Email</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com" style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+          onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+      </div>
+
+      {/* Password with forgot link */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <label style={labelStyle}>Password</label>
+          {tab === "signin" && (
+            <button onClick={onForgotPassword}
+              style={{ background: "none", border: "none", fontSize: 12, color: "#7C6FCD", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+              Forgot password?
+            </button>
+          )}
+        </div>
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+          placeholder="••••••••" style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "#7C6FCD"}
+          onBlur={e => e.target.style.borderColor = "#2a2a4a"}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+      </div>
+
+      <Message msg={msg} />
+
+      <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }}>
+        {loading ? "Please wait…" : tab === "signin" ? "Sign in →" : "Create account →"}
+      </button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
+        <span style={{ fontSize: 11, color: "#3a3a5a", fontWeight: 600 }}>OR</span>
+        <div style={{ flex: 1, height: 1, background: "#2a2a4a" }} />
+      </div>
+
+      <button onClick={handleGoogle}
+        style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #2a2a4a", background: "#07070f", color: "#9090b0", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, transition: "all 0.15s" }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "#3a3a6a"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "#0e0e1e"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a4a"; e.currentTarget.style.color = "#9090b0"; e.currentTarget.style.background = "#07070f"; }}>
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+    </AuthCard>
   );
 }
 
@@ -136,7 +242,7 @@ function CardModal({ card, onSave, onClose, onDelete }) {
   );
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const inp = { border: "1.5px solid #2a2a3a", borderRadius: 8, padding: "8px 11px", fontSize: 14, outline: "none", color: "#fff", fontFamily: "inherit", width: "100%", background: "#13131f", transition: "border-color 0.15s" };
-  const labelStyle = { fontSize: 11, fontWeight: 700, color: "#666", letterSpacing: "0.08em", textTransform: "uppercase" };
+  const lbl = { fontSize: 11, fontWeight: 700, color: "#666", letterSpacing: "0.08em", textTransform: "uppercase" };
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose()}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
@@ -153,20 +259,20 @@ function CardModal({ card, onSave, onClose, onDelete }) {
           { k: "url", label: "Job URL", placeholder: "https://..." },
         ].map(({ k, label, placeholder }) => (
           <div key={k} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={labelStyle}>{label}</label>
+            <label style={lbl}>{label}</label>
             <input value={form[k] || ""} onChange={set(k)} placeholder={placeholder} style={inp}
               onFocus={e => e.target.style.borderColor = "#7C6FCD"}
               onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
           </div>
         ))}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label style={labelStyle}>Date Applied</label>
+          <label style={lbl}>Date Applied</label>
           <input type="date" value={form.date || ""} onChange={set("date")} style={inp}
             onFocus={e => e.target.style.borderColor = "#7C6FCD"}
             onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label style={labelStyle}>Notes</label>
+          <label style={lbl}>Notes</label>
           <textarea value={form.notes || ""} onChange={set("notes")} placeholder="Anything to remember about this role..." rows={3}
             style={{ ...inp, resize: "vertical" }}
             onFocus={e => e.target.style.borderColor = "#7C6FCD"}
@@ -238,6 +344,18 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn }) {
   );
 }
 
+// ─── Sign Out Button (shared) ─────────────────────────────────────────────────
+function SignOutBtn({ onClick }) {
+  return (
+    <button onClick={onClick}
+      style={{ background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+      onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
+      onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
+      Sign out
+    </button>
+  );
+}
+
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 function HomeScreen({ onOpen, session, onSignOut }) {
   const [hovered, setHovered] = useState(false);
@@ -247,17 +365,11 @@ function HomeScreen({ onOpen, session, onSignOut }) {
       <div style={{ position: "absolute", bottom: "5%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 70%)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,111,205,0.05) 0%, transparent 60%)", pointerEvents: "none" }} />
 
-      {/* Top right: sign in or sign out */}
-      <div style={{ position: "absolute", top: 20, right: 24, zIndex: 1 }}>
-        {session ? (
-          <button onClick={onSignOut}
-            style={{ background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-            onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
-            onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
-            Sign out
-          </button>
-        ) : null}
-      </div>
+      {session && (
+        <div style={{ position: "absolute", top: 20, right: 24, zIndex: 1 }}>
+          <SignOutBtn onClick={onSignOut} />
+        </div>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(124,111,205,0.1)", border: "1px solid rgba(124,111,205,0.3)", borderRadius: 100, padding: "6px 16px", marginBottom: 32, position: "relative", zIndex: 1 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px #10B981" }} />
@@ -281,7 +393,6 @@ function HomeScreen({ onOpen, session, onSignOut }) {
         ))}
       </div>
 
-      {/* CTA: if logged in go straight to board, else go to login */}
       <button onClick={onOpen} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
         style={{ padding: "18px 52px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #7C6FCD, #a78bfa)", color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", boxShadow: hovered ? "0 16px 48px rgba(124,111,205,0.55)" : "0 8px 32px rgba(124,111,205,0.4)", transform: hovered ? "translateY(-3px) scale(1.02)" : "none", transition: "all 0.2s", fontFamily: "inherit", marginBottom: 48, position: "relative", zIndex: 1 }}>
         {session ? "Open Tracker →" : "Get Started →"}
@@ -295,7 +406,7 @@ function HomeScreen({ onOpen, session, onSignOut }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [session, setSession] = useState(undefined);
-  const [screen, setScreen] = useState("home"); // "home" | "auth" | "board"
+  const [screen, setScreen] = useState("home"); // "home" | "auth" | "forgot" | "reset" | "board"
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [cards, setCards] = useState({});
   const [modal, setModal] = useState(null);
@@ -306,16 +417,20 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      // If coming back from a password reset link
+      if (window.location.search.includes("reset=true") && session) setScreen("reset");
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // When user logs in, go straight to board
-      if (session) setScreen("board");
+      if (session && _event === "SIGNED_IN") setScreen("board");
+      if (_event === "PASSWORD_RECOVERY") setScreen("reset");
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load data when session available
+  // Load data
   useEffect(() => {
     if (!session) return;
     async function loadData() {
@@ -339,11 +454,6 @@ export default function App() {
   }, [session]);
 
   const showStatus = (msg) => { setSaveStatus(msg); setTimeout(() => setSaveStatus(null), 2000); };
-
-  const handleOpen = () => {
-    if (session) setScreen("board");
-    else setScreen("auth");
-  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -393,7 +503,7 @@ export default function App() {
 
   const total = Object.values(cards).flat().length;
 
-  // Loading auth
+  // Auth loading
   if (session === undefined) return (
     <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
@@ -403,11 +513,13 @@ export default function App() {
     </div>
   );
 
-  // Flow: home → auth → board
-  if (screen === "home") return <HomeScreen onOpen={handleOpen} session={session} onSignOut={signOut} />;
-  if (screen === "auth") return <AuthScreen onBack={() => setScreen("home")} />;
+  // Screen routing
+  if (screen === "reset") return <SetNewPasswordScreen onDone={() => setScreen("board")} />;
+  if (screen === "forgot") return <ForgotPasswordScreen onBack={() => setScreen("auth")} />;
+  if (screen === "auth") return <AuthScreen onBack={() => setScreen("home")} onForgotPassword={() => setScreen("forgot")} />;
+  if (screen === "home") return <HomeScreen onOpen={() => session ? setScreen("board") : setScreen("auth")} session={session} onSignOut={signOut} />;
 
-  // Loading board data
+  // Data loading
   if (loading) return (
     <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#050508", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}>
@@ -417,6 +529,7 @@ export default function App() {
     </div>
   );
 
+  // Board
   return (
     <div style={{ width: "100%", minHeight: "100vh", background: "#050508", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
       <div style={{ background: "#050508", borderBottom: "1px solid #2a2a4a", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -435,12 +548,7 @@ export default function App() {
             const count = (cards[col.id] || []).length;
             return count > 0 ? <span key={col.id} style={{ background: col.color + "18", color: col.color, border: `1px solid ${col.color}33`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{col.label}: {count}</span> : null;
           })}
-          <button onClick={signOut}
-            style={{ background: "none", border: "1px solid #2a2a4a", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, color: "#6060a0", cursor: "pointer", fontFamily: "inherit", marginLeft: 8, transition: "all 0.15s" }}
-            onMouseEnter={e => { e.target.style.borderColor = "#EF444444"; e.target.style.color = "#EF4444"; }}
-            onMouseLeave={e => { e.target.style.borderColor = "#2a2a4a"; e.target.style.color = "#6060a0"; }}>
-            Sign out
-          </button>
+          <div style={{ marginLeft: 8 }}><SignOutBtn onClick={signOut} /></div>
         </div>
       </div>
 
