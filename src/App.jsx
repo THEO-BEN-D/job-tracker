@@ -281,26 +281,24 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
 // ─── Card Modal ───────────────────────────────────────────────────────────────
 const DRAFT_KEY = "jt_card_draft";
 
-function CardModal({ card, onSave, onClose, onDelete, columnId }) {
+function CardForm({ card, onSave, onClose, onDelete, columnId }) {
   const [form, setForm] = useState(() => {
     if (card?.id) return card;
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed._columnId === columnId) return parsed;
+      }
     } catch(_) {}
     return { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" };
   });
-  const [draftSaved, setDraftSaved] = useState(false);
 
   const set = k => e => {
     const updated = { ...form, [k]: e.target.value };
     setForm(updated);
-  };
-
-  const saveDraft = () => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, _columnId: columnId }));
-    setDraftSaved(true);
-    setTimeout(() => setDraftSaved(false), 2000);
+    // Auto-save draft on every keystroke
+    if (!card?.id) localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...updated, _columnId: columnId }));
   };
 
   const handleClose = () => {
@@ -314,12 +312,13 @@ function CardModal({ card, onSave, onClose, onDelete, columnId }) {
   const inp = { ...inputStyle };
   const lbl = { ...labelStyle };
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-      <div style={{ background: "#fff", borderRadius: 20, padding: 32, width: 480, maxWidth: "95vw", boxShadow: "0 24px 60px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: 16, maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#f9fafb", zIndex: 1000, overflowY: "auto" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "24px 24px 60px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+          <button onClick={handleClose} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600, color: "#6b7280", cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>{card?.id ? "Edit Application" : "New Application"}</h2>
-          <button onClick={handleClose} style={{ background: "#f3f4f6", border: "none", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", color: "#6b7280" }}>×</button>
         </div>
+        <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 16 }}>
         {[
           { k: "company", label: "Company *", placeholder: "e.g. Stripe" },
           { k: "role", label: "Role *", placeholder: "e.g. Product Designer" },
@@ -344,18 +343,14 @@ function CardModal({ card, onSave, onClose, onDelete, columnId }) {
             style={{ ...inp, resize: "vertical" }}
             onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           {card?.id && <button onClick={() => onDelete(card.id)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #fecaca", background: "#fef2f2", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>}
-          {!card?.id && (
-            <button onClick={saveDraft} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #c7d2fe", background: "#eef2ff", color: "#6366f1", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              {draftSaved ? "✓ Draft saved!" : "Save draft"}
-            </button>
-          )}
           <button onClick={handleClose} style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           <button onClick={() => {
             if (!form.company?.trim() || !form.role?.trim()) { alert("Company and Role are required."); return; }
             handleSave({ ...form, id: card?.id || Date.now().toString() });
           }} style={{ ...btnPrimary }}>Save →</button>
+        </div>
         </div>
       </div>
     </div>
@@ -438,17 +433,17 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
   const [dragOverCol, setDragOverCol] = useState(null);
   const total = Object.values(cards).flat().length;
 
-  // Auto-reopen draft if one exists
+  // Auto-reopen draft if one exists when board loads
   useEffect(() => {
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
         const draft = JSON.parse(saved);
-        const colId = draft._columnId || (columns[0]?.id);
+        const colId = draft._columnId || columns[0]?.id;
         if (colId) setModal({ columnId: colId, card: null });
       }
     } catch(_) {}
-  }, []);
+  }, [columns]);
 
   const handleDrop = async (e, toColId) => {
     e.preventDefault();
@@ -552,7 +547,7 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
           )}
         </div>
       </div>
-      {modal && <CardModal card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} />}
+      {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} />}
     </div>
   );
 }
