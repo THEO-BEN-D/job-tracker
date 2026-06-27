@@ -643,7 +643,8 @@ function DocumentsScreen({ session }) {
   const confirmUpload = async () => {
     const { file, ext } = tagModal;
     setUploading(true);
-    const filePath = `${session.user.id}/${Date.now()}_${file.name}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = `${session.user.id}/${Date.now()}_${safeName}`;
     const { error: uploadError } = await supabase.storage.from("Documents").upload(filePath, file);
     if (uploadError) { alert("Upload failed: " + uploadError.message); setUploading(false); return; }
     const id = Date.now().toString();
