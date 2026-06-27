@@ -762,16 +762,10 @@ function DocumentsScreen({ session }) {
               <input value={nameValue} onChange={e => setNameValue(e.target.value)} placeholder="e.g. Product Designer CV" style={inputStyle}
                 onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label style={labelStyle}>Tag</label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {["Product", "Engineering", "Marketing", "Design", "Finance", "General"].map(t => (
-                  <button key={t} onClick={() => setTagValue(tagValue === t ? "" : t)}
-                    style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${tagValue === t ? getTagColor(t) : "#e5e7eb"}`, background: tagValue === t ? getTagColor(t) + "18" : "#f9fafb", color: tagValue === t ? getTagColor(t) : "#6b7280", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                    {t}
-                  </button>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={labelStyle}>Tag <span style={{ color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional — e.g. Product, Engineering)</span></label>
+              <input value={tagValue} onChange={e => setTagValue(e.target.value)} placeholder="e.g. Product, Engineering, Marketing..." style={inputStyle}
+                onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setTagModal(null)} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
