@@ -239,7 +239,6 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
   const initial = email.charAt(0).toUpperCase();
   const navItems = [
     { id: "board", icon: "📋", label: "Board" },
-    { id: "stats", icon: "📊", label: "Stats" },
     { id: "documents", icon: "📁", label: "My Documents" },
   ];
   return (
@@ -286,7 +285,7 @@ function CardModal({ card, onSave, onClose, onDelete }) {
   const inp = { ...inputStyle };
   const lbl = { ...labelStyle };
   return (
-    <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
       <div style={{ background: "#fff", borderRadius: 20, padding: 32, width: 480, maxWidth: "95vw", boxShadow: "0 24px 60px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: 16, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>{card?.id ? "Edit Application" : "New Application"}</h2>
@@ -857,7 +856,7 @@ export default function App() {
       <Sidebar screen={screen} setScreen={setScreen} session={session} onSignOut={signOut} />
       <div style={{ marginLeft: 220, flex: 1, overflow: "hidden" }}>
         {screen === "board" && <BoardScreen columns={columns} cards={cards} setCards={setCards} setColumns={setColumns} session={session} saveStatus={saveStatus} />}
-        {screen === "stats" && <StatsScreen cards={cards} />}
+
         {screen === "documents" && <DocumentsScreen session={session} />}
       </div>
       {saveStatus && (
