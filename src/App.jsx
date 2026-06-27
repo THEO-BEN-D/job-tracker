@@ -624,7 +624,7 @@ function DocumentsScreen({ session }) {
 
   const loadDocs = async () => {
     setLoading(true);
-    const { data } = await supabase.from("documents").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    const { data } = await supabase.from("Documents").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
     setDocs(data || []);
     setLoading(false);
   };
@@ -644,10 +644,10 @@ function DocumentsScreen({ session }) {
     const { file, ext } = tagModal;
     setUploading(true);
     const filePath = `${session.user.id}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, file);
+    const { error: uploadError } = await supabase.storage.from("Documents").upload(filePath, file);
     if (uploadError) { alert("Upload failed: " + uploadError.message); setUploading(false); return; }
     const id = Date.now().toString();
-    await supabase.from("documents").insert({
+    await supabase.from("Documents").insert({
       id, user_id: session.user.id,
       name: nameValue || file.name,
       type: tab === "cvs" ? "cv" : "cover_letter",
@@ -660,14 +660,14 @@ function DocumentsScreen({ session }) {
   };
 
   const handleDownload = async doc => {
-    const { data } = await supabase.storage.from("documents").createSignedUrl(doc.file_path, 60);
+    const { data } = await supabase.storage.from("Documents").createSignedUrl(doc.file_path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
   const handleDelete = async doc => {
     if (!window.confirm("Delete this document?")) return;
-    await supabase.storage.from("documents").remove([doc.file_path]);
-    await supabase.from("documents").delete().eq("id", doc.id);
+    await supabase.storage.from("Documents").remove([doc.file_path]);
+    await supabase.from("Documents").delete().eq("id", doc.id);
     loadDocs();
   };
 
