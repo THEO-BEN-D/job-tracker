@@ -228,7 +228,7 @@ function HomeScreen({ onOpen, session }) {
         {session ? "Open Tracker →" : "Get Started →"}
       </button>
 
-      <p style={{ margin: "48px 0 0", fontSize: 11, color: "#9ca3af", letterSpacing: "0.1em", fontWeight: 600 }}>FREE · SYNC ACROSS DEVICES · NO SPREADSHEETS</p>
+
     </div>
   );
 }
@@ -280,8 +280,34 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
 
 // ─── Card Modal ───────────────────────────────────────────────────────────────
 function CardModal({ card, onSave, onClose, onDelete }) {
-  const [form, setForm] = useState(card || { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" });
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const storageKey = "jt_draft_" + (card?.id || "new");
+  const [form, setForm] = useState(() => {
+    // If editing an existing card, use the card data
+    if (card?.id) return card;
+    // Otherwise try to restore a saved draft
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch(_) {}
+    return { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" };
+  });
+
+  // Save draft to localStorage on every change
+  const set = k => e => {
+    const updated = { ...form, [k]: e.target.value };
+    setForm(updated);
+    if (!card?.id) localStorage.setItem(storageKey, JSON.stringify(updated));
+  };
+
+  // Clear draft when saving or cancelling
+  const handleClose = () => {
+    localStorage.removeItem(storageKey);
+    onClose();
+  };
+  const handleSave = (data) => {
+    localStorage.removeItem(storageKey);
+    onSave(data);
+  };
   const inp = { ...inputStyle };
   const lbl = { ...labelStyle };
   return (
@@ -289,7 +315,7 @@ function CardModal({ card, onSave, onClose, onDelete }) {
       <div style={{ background: "#fff", borderRadius: 20, padding: 32, width: 480, maxWidth: "95vw", boxShadow: "0 24px 60px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column", gap: 16, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>{card?.id ? "Edit Application" : "New Application"}</h2>
-          <button onClick={onClose} style={{ background: "#f3f4f6", border: "none", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", color: "#6b7280" }}>×</button>
+          <button onClick={handleClose} style={{ background: "#f3f4f6", border: "none", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", color: "#6b7280" }}>×</button>
         </div>
         {[
           { k: "company", label: "Company *", placeholder: "e.g. Stripe" },
@@ -317,10 +343,10 @@ function CardModal({ card, onSave, onClose, onDelete }) {
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           {card?.id && <button onClick={() => onDelete(card.id)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #fecaca", background: "#fef2f2", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>}
-          <button onClick={onClose} style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+          <button onClick={handleClose} style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           <button onClick={() => {
             if (!form.company?.trim() || !form.role?.trim()) { alert("Company and Role are required."); return; }
-            onSave({ ...form, id: card?.id || Date.now().toString() });
+            handleSave({ ...form, id: card?.id || Date.now().toString() });
           }} style={{ ...btnPrimary }}>Save →</button>
         </div>
       </div>
