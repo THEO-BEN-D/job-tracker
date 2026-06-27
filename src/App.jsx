@@ -279,33 +279,36 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
 }
 
 // ─── Card Modal ───────────────────────────────────────────────────────────────
-function CardModal({ card, onSave, onClose, onDelete }) {
-  const storageKey = "jt_draft_" + (card?.id || "new");
+const DRAFT_KEY = "jt_card_draft";
+
+function CardModal({ card, onSave, onClose, onDelete, columnId }) {
   const [form, setForm] = useState(() => {
-    // If editing an existing card, use the card data
     if (card?.id) return card;
-    // Otherwise try to restore a saved draft
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) return JSON.parse(saved);
     } catch(_) {}
     return { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" };
   });
+  const [draftSaved, setDraftSaved] = useState(false);
 
-  // Save draft to localStorage on every change
   const set = k => e => {
     const updated = { ...form, [k]: e.target.value };
     setForm(updated);
-    if (!card?.id) localStorage.setItem(storageKey, JSON.stringify(updated));
   };
 
-  // Clear draft when saving or cancelling
+  const saveDraft = () => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, _columnId: columnId }));
+    setDraftSaved(true);
+    setTimeout(() => setDraftSaved(false), 2000);
+  };
+
   const handleClose = () => {
-    localStorage.removeItem(storageKey);
+    localStorage.removeItem(DRAFT_KEY);
     onClose();
   };
   const handleSave = (data) => {
-    localStorage.removeItem(storageKey);
+    localStorage.removeItem(DRAFT_KEY);
     onSave(data);
   };
   const inp = { ...inputStyle };
@@ -341,8 +344,13 @@ function CardModal({ card, onSave, onClose, onDelete }) {
             style={{ ...inp, resize: "vertical" }}
             onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
           {card?.id && <button onClick={() => onDelete(card.id)} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #fecaca", background: "#fef2f2", color: "#EF4444", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>}
+          {!card?.id && (
+            <button onClick={saveDraft} style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #c7d2fe", background: "#eef2ff", color: "#6366f1", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              {draftSaved ? "✓ Draft saved!" : "Save draft"}
+            </button>
+          )}
           <button onClick={handleClose} style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           <button onClick={() => {
             if (!form.company?.trim() || !form.role?.trim()) { alert("Company and Role are required."); return; }
@@ -429,6 +437,18 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
   const [newColName, setNewColName] = useState("");
   const [dragOverCol, setDragOverCol] = useState(null);
   const total = Object.values(cards).flat().length;
+
+  // Auto-reopen draft if one exists
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        const colId = draft._columnId || (columns[0]?.id);
+        if (colId) setModal({ columnId: colId, card: null });
+      }
+    } catch(_) {}
+  }, []);
 
   const handleDrop = async (e, toColId) => {
     e.preventDefault();
@@ -532,7 +552,7 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
           )}
         </div>
       </div>
-      {modal && <CardModal card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} />}
+      {modal && <CardModal card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} />}
     </div>
   );
 }
