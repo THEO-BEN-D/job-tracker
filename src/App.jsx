@@ -244,7 +244,7 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
   ];
   return (
     <div style={{ width: 220, flexShrink: 0, background: "#f9fafb", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", padding: "20px 12px", height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 10 }}>
-      <div onClick={() => setScreen("home")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", marginBottom: 20, cursor: "pointer", borderRadius: 10, transition: "background 0.15s" }}
+      <div onClick={() => setScreen("board")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", marginBottom: 20, cursor: "pointer", borderRadius: 10, transition: "background 0.15s" }}
         onMouseEnter={e => e.currentTarget.style.background = "#f3f4f6"}
         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #6366f1, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, boxShadow: "0 4px 12px rgba(99,102,241,0.3)" }}>💼</div>
