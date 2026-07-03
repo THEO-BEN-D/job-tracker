@@ -240,6 +240,7 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
   const navItems = [
     { id: "board", icon: "📋", label: "Board" },
     { id: "documents", icon: "📁", label: "My Documents" },
+    { id: "trash", icon: "🗑️", label: "Trash" },
   ];
   return (
     <div style={{ width: 220, flexShrink: 0, background: "#f9fafb", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", padding: "20px 12px", height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 10 }}>
@@ -568,10 +569,9 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
   };
 
   const deleteCard = async cardId => {
+    if (!window.confirm("Delete this application? You can restore it later from Trash.")) return;
     const { columnId } = modal;
-    const existing = (cards[columnId] || []).find(c => c.id === cardId);
-    if (existing?.jd_file_path) await supabase.storage.from("Documents").remove([existing.jd_file_path]);
-    await supabase.from("applications").delete().eq("id", cardId);
+    await supabase.from("applications").update({ deleted_at: new Date().toISOString() }).eq("id", cardId);
     setCards(prev => ({ ...prev, [columnId]: (prev[columnId] || []).filter(c => c.id !== cardId) }));
     setModal(null);
   };
@@ -914,6 +914,70 @@ function DocumentsScreen({ session }) {
   );
 }
 
+// ─── Trash Screen ─────────────────────────────────────────────────────────────
+function TrashScreen({ session, onRestore }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("applications").select("*").eq("user_id", session.user.id).not("deleted_at", "is", null).order("deleted_at", { ascending: false });
+    setItems(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleRestore = async item => {
+    await supabase.from("applications").update({ deleted_at: null }).eq("id", item.id);
+    setItems(prev => prev.filter(c => c.id !== item.id));
+    onRestore(item);
+  };
+
+  const handlePermanentDelete = async item => {
+    if (!window.confirm(`Permanently delete "${item.company} – ${item.role}"? This can't be undone.`)) return;
+    if (item.jd_file_path) await supabase.storage.from("Documents").remove([item.jd_file_path]);
+    await supabase.from("applications").delete().eq("id", item.id);
+    setItems(prev => prev.filter(c => c.id !== item.id));
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 24px", flexShrink: 0 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>Trash</div>
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>{items.length} deleted application{items.length !== 1 ? "s" : ""}</div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f9fafb" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>Loading…</div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🗑️</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#6b7280" }}>Trash is empty</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Deleted applications will show up here.</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {items.map(item => (
+              <div key={item.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.company}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{item.role}</div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Deleted {new Date(item.deleted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => handleRestore(item)} style={{ border: "1px solid #c7d2fe", background: "#eef2ff", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#6366f1", cursor: "pointer", fontFamily: "inherit" }}>↺ Restore</button>
+                  <button onClick={() => handlePermanentDelete(item)} style={{ border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#EF4444", cursor: "pointer", fontFamily: "inherit" }}>Delete forever</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -942,7 +1006,7 @@ export default function App() {
       setLoading(true);
       const userId = session.user.id;
       const { data: colData } = await supabase.from("columns_config").select("*").eq("user_id", userId).order("position");
-      const { data: appData } = await supabase.from("applications").select("*").eq("user_id", userId).order("created_at");
+      const { data: appData } = await supabase.from("applications").select("*").eq("user_id", userId).is("deleted_at", null).order("created_at");
       if (colData && colData.length > 0) setColumns(colData);
       else await supabase.from("columns_config").insert(DEFAULT_COLUMNS.map(c => ({ ...c, user_id: userId })));
       if (appData) {
@@ -965,6 +1029,10 @@ export default function App() {
 
   const showStatus = msg => { setSaveStatus(msg); setTimeout(() => setSaveStatus(null), 2000); };
 
+  const restoreCard = card => {
+    setCards(prev => ({ ...prev, [card.column_id]: [...(prev[card.column_id] || []), { ...card, deleted_at: null }] }));
+  };
+
   if (session === undefined) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", fontFamily: "Inter, sans-serif" }}>
       <div style={{ textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 16 }}>💼</div><div style={{ color: "#6b7280", fontSize: 14 }}>Loading…</div></div>
@@ -982,7 +1050,7 @@ export default function App() {
     </div>
   );
 
-  const appScreens = ["board", "stats", "documents"];
+  const appScreens = ["board", "stats", "documents", "trash"];
   if (!appScreens.includes(screen)) setScreen("board");
 
   return (
@@ -992,6 +1060,8 @@ export default function App() {
         {screen === "board" && <BoardScreen columns={columns} cards={cards} setCards={setCards} setColumns={setColumns} session={session} saveStatus={saveStatus} />}
 
         {screen === "documents" && <DocumentsScreen session={session} />}
+
+        {screen === "trash" && <TrashScreen session={session} onRestore={restoreCard} />}
       </div>
       {saveStatus && (
         <div style={{ position: "fixed", bottom: 20, right: 20, background: "#111827", color: "#fff", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", zIndex: 2000 }}>
