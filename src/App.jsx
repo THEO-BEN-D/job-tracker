@@ -375,15 +375,15 @@ function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }
           </div>
         </div>
         {[
-          { k: "company", label: "Company *", placeholder: "e.g. Stripe" },
-          { k: "role", label: "Role *", placeholder: "e.g. Product Designer" },
-          { k: "location", label: "Location", placeholder: "e.g. London / Remote" },
-          { k: "salary", label: "Salary", placeholder: "e.g. £80k–£100k" },
-          { k: "url", label: "Job URL", placeholder: "https://..." },
-        ].map(({ k, label, placeholder }) => (
+          { k: "company", label: "Company *" },
+          { k: "role", label: "Role *" },
+          { k: "location", label: "Location" },
+          { k: "salary", label: "Salary" },
+          { k: "url", label: "Job URL" },
+        ].map(({ k, label }) => (
           <div key={k} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={lbl}>{label}</label>
-            <input value={form[k] || ""} onChange={set(k)} placeholder={placeholder} style={inp}
+            <input value={form[k] || ""} onChange={set(k)} style={inp}
               onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
           </div>
         ))}
@@ -520,33 +520,35 @@ function ListView({ columns, cards, onEditCard }) {
   };
 
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: LIST_COLS, padding: "10px 16px", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-        {["Company / Role", "Applied", "Last Activity", "Notes", "Salary"].map(h => (
-          <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</div>
-        ))}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {columns.map(col => {
         const colCards = cards[col.id] || [];
         const isCollapsed = collapsed[col.id];
         return (
-          <div key={col.id}>
+          <div key={col.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
             <div onClick={() => toggle(col.id)}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: col.color + "0d", borderBottom: "1px solid #e5e7eb", borderTop: "1px solid #e5e7eb", cursor: "pointer" }}>
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: col.color + "0d", borderBottom: isCollapsed ? "none" : "1px solid #e5e7eb", cursor: "pointer" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
-              <span style={{ fontWeight: 700, fontSize: 11, color: col.color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{col.label}</span>
-              <span style={{ background: col.color + "18", color: col.color, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{colCards.length}</span>
+              <span style={{ fontWeight: 700, fontSize: 12, color: col.color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{col.label}</span>
+              <span style={{ background: col.color + "18", color: col.color, borderRadius: 20, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>{colCards.length}</span>
               <span style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af" }}>{isCollapsed ? "▸" : "▾"}</span>
             </div>
+            {!isCollapsed && colCards.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: LIST_COLS, padding: "8px 16px", background: "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
+                {["Company / Role", "Applied", "Last Activity", "Notes", "Salary"].map(h => (
+                  <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</div>
+                ))}
+              </div>
+            )}
             {!isCollapsed && colCards.length === 0 && (
-              <div style={{ padding: "12px 16px", fontSize: 12, color: "#d1d5db" }}>No applications in this stage</div>
+              <div style={{ padding: "16px", fontSize: 12, color: "#d1d5db" }}>No applications in this stage</div>
             )}
             {!isCollapsed && colCards.map(card => {
               const days = daysSince(card.date);
               const stale = days !== null && days > 14 && col.id !== "offer" && col.id !== "rejected";
               return (
                 <div key={card.id} onClick={() => onEditCard(col.id, card)}
-                  style={{ display: "grid", gridTemplateColumns: LIST_COLS, alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontSize: 13, transition: "background 0.1s" }}
+                  style={{ display: "grid", gridTemplateColumns: LIST_COLS, alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontSize: 13, transition: "background 0.1s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <div>
@@ -572,8 +574,6 @@ const VIEW_KEY = "jt_board_view";
 
 function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus }) {
   const [modal, setModal] = useState(null);
-  const [addingCol, setAddingCol] = useState(false);
-  const [newColName, setNewColName] = useState("");
   const [dragOverCol, setDragOverCol] = useState(null);
   const [view, setView] = useState(() => localStorage.getItem(VIEW_KEY) || "kanban");
   const total = Object.values(cards).flat().length;
@@ -649,16 +649,6 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
     setCards(prev => { const n = { ...prev }; delete n[colId]; return n; });
   };
 
-  const addColumn = async () => {
-    if (!newColName.trim()) return;
-    const COLORS = ["#06B6D4", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
-    const id = newColName.toLowerCase().replace(/\s+/g, "_") + "_" + Date.now();
-    const newCol = { id, label: newColName.trim(), color: COLORS[columns.length % COLORS.length], position: columns.length, user_id: session.user.id };
-    await supabase.from("columns_config").insert(newCol);
-    setColumns(prev => [...prev, newCol]);
-    setNewColName(""); setAddingCol(false);
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 24px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -697,26 +687,6 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
               onDragLeave={() => setDragOverCol(null)}
               isDragOver={dragOverCol === col.id} />
           ))}
-          <div style={{ minWidth: 215, flexShrink: 0 }}>
-            {addingCol ? (
-              <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") addColumn(); if (e.key === "Escape") setAddingCol(false); }}
-                  placeholder="Column name…" style={{ ...inputStyle, borderColor: "#6366f1" }} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={addColumn} style={{ ...btnPrimary, flex: 1, padding: 8, fontSize: 13 }}>Add</button>
-                  <button onClick={() => { setAddingCol(false); setNewColName(""); }} style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setAddingCol(true)}
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 12, border: "1.5px dashed #d1d5db", background: "transparent", color: "#9ca3af", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-                onMouseEnter={e => { e.target.style.borderColor = "#6366f1"; e.target.style.color = "#6366f1"; e.target.style.background = "#eef2ff"; }}
-                onMouseLeave={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.color = "#9ca3af"; e.target.style.background = "transparent"; }}>
-                + Add Column
-              </button>
-            )}
-          </div>
         </div>
       ) : (
         <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f9fafb" }}>
