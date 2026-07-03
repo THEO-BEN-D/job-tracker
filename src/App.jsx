@@ -281,7 +281,7 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
 // ─── Card Modal ───────────────────────────────────────────────────────────────
 const DRAFT_KEY = "jt_card_draft";
 
-function CardForm({ card, onSave, onClose, onDelete, columnId }) {
+function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }) {
   const [form, setForm] = useState(() => {
     if (card?.id) return card;
     try {
@@ -293,6 +293,46 @@ function CardForm({ card, onSave, onClose, onDelete, columnId }) {
     } catch(_) {}
     return { company: "", role: "", location: "", salary: "", url: "", date: new Date().toISOString().split("T")[0], notes: "" };
   });
+
+  // Stable id so an attached PDF can be uploaded to a real path before Save is clicked
+  const [cardId] = useState(() => card?.id || Date.now().toString());
+
+  // ── Status (which column this card is/will be in) ──
+  const [statusId, setStatusId] = useState(card?.column_id || columnId);
+  const currentCol = columns.find(c => c.id === statusId) || columns[0] || {};
+
+  // ── Job description PDF attachment ──
+  const [jdPath, setJdPath] = useState(card?.jd_file_path || null);
+  const [jdName, setJdName] = useState(card?.jd_file_path ? card.jd_file_path.split("/").pop().replace(/^jd_[^_]+_/, "") : null);
+  const [jdUploading, setJdUploading] = useState(false);
+  const jdFileRef = useRef();
+
+  const handleJdSelect = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") { alert("Please attach a PDF file."); e.target.value = ""; return; }
+    if (file.size > 10 * 1024 * 1024) { alert("File is too large (max 10MB)."); e.target.value = ""; return; }
+    setJdUploading(true);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/jd_${cardId}_${safeName}`;
+    const { error } = await supabase.storage.from("Documents").upload(path, file, { upsert: true });
+    if (error) { alert("Upload failed: " + error.message); setJdUploading(false); e.target.value = ""; return; }
+    setJdPath(path);
+    setJdName(file.name);
+    setJdUploading(false);
+    e.target.value = "";
+  };
+
+  const handleJdRemove = async () => {
+    if (jdPath) await supabase.storage.from("Documents").remove([jdPath]);
+    setJdPath(null);
+    setJdName(null);
+  };
+
+  const handleJdView = async () => {
+    const { data } = await supabase.storage.from("Documents").createSignedUrl(jdPath, 60);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
 
   const set = k => e => {
     const updated = { ...form, [k]: e.target.value };
@@ -319,6 +359,20 @@ function CardForm({ card, onSave, onClose, onDelete, columnId }) {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>{card?.id ? "Edit Application" : "New Application"}</h2>
         </div>
         <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={lbl}>Status</label>
+          <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: currentCol.color, flexShrink: 0 }} />
+              <select value={statusId} onChange={e => setStatusId(e.target.value)}
+                style={{ flex: 1, appearance: "none", WebkitAppearance: "none", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "9px 13px", fontSize: 14, fontWeight: 700, color: currentCol.color, fontFamily: "inherit", cursor: "pointer", outline: "none" }}
+                onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"}>
+                {columns.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
+              </select>
+            </div>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>This card will be {card?.id ? "moved to" : "added to"} the <strong>{currentCol.label}</strong> column.</span>
+          </div>
+        </div>
         {[
           { k: "company", label: "Company *", placeholder: "e.g. Stripe" },
           { k: "role", label: "Role *", placeholder: "e.g. Product Designer" },
@@ -332,6 +386,30 @@ function CardForm({ card, onSave, onClose, onDelete, columnId }) {
               onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
           </div>
         ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={lbl}>Job Description (PDF)</label>
+          {!jdPath ? (
+            <div onClick={() => jdFileRef.current.click()}
+              style={{ border: "2px dashed #c7d2fe", borderRadius: 12, padding: "18px 16px", textAlign: "center", background: "#eef2ff55", cursor: "pointer" }}>
+              <div style={{ fontSize: 22, marginBottom: 6 }}>📎</div>
+              <div style={{ fontSize: 13, color: "#6366f1", fontWeight: 600 }}>{jdUploading ? "Uploading…" : "Click to attach the job description PDF"}</div>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>Keeps a copy in case the listing gets taken down · Max 10MB</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>📄</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{jdName}</div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Attached</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button onClick={handleJdView} style={{ border: "1px solid #e5e7eb", background: "#f9fafb", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#6b7280", cursor: "pointer", fontFamily: "inherit" }}>↓ View</button>
+                <button onClick={handleJdRemove} style={{ border: "1px solid #fecaca", background: "#fef2f2", borderRadius: 7, padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "#EF4444", cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
+              </div>
+            </div>
+          )}
+          <input ref={jdFileRef} type="file" accept="application/pdf" onChange={handleJdSelect} style={{ display: "none" }} />
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={lbl}>Date Applied</label>
           <input type="date" value={form.date || ""} onChange={set("date")} style={inp}
@@ -348,7 +426,7 @@ function CardForm({ card, onSave, onClose, onDelete, columnId }) {
           <button onClick={handleClose} style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
           <button onClick={() => {
             if (!form.company?.trim() || !form.role?.trim()) { alert("Company and Role are required."); return; }
-            handleSave({ ...form, id: card?.id || Date.now().toString() });
+            handleSave({ ...form, id: cardId, column_id: statusId, jd_file_path: jdPath });
           }} style={{ ...btnPrimary }}>Save →</button>
         </div>
         </div>
@@ -374,7 +452,10 @@ function KanbanCard({ card, onClick, onDragStart, onDragEnd }) {
       <div style={{ fontSize: 12, color: "#6b7280" }}>{card.role}</div>
       {card.location && <div style={{ fontSize: 11, color: "#9ca3af" }}>📍 {card.location}</div>}
       {card.salary && <div style={{ fontSize: 11, color: "#059669", fontWeight: 600 }}>{card.salary}</div>}
-      {date && <div style={{ fontSize: 10, color: "#d1d5db", marginTop: 2 }}>{date}</div>}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {date && <div style={{ fontSize: 10, color: "#d1d5db", marginTop: 2 }}>{date}</div>}
+        {card.jd_file_path && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>📎 JD</div>}
+      </div>
     </div>
   );
 }
@@ -463,21 +544,33 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
   };
 
   const saveCard = async cardData => {
-    const { columnId } = modal;
+    const fromColumnId = modal.columnId;
+    const toColumnId = cardData.column_id || fromColumnId;
     const userId = session.user.id;
-    const row = { id: cardData.id, column_id: columnId, user_id: userId, company: cardData.company, role: cardData.role, location: cardData.location || null, salary: cardData.salary || null, url: cardData.url || null, date: cardData.date || null, notes: cardData.notes || null };
+    const row = { id: cardData.id, column_id: toColumnId, user_id: userId, company: cardData.company, role: cardData.role, location: cardData.location || null, salary: cardData.salary || null, url: cardData.url || null, date: cardData.date || null, notes: cardData.notes || null, jd_file_path: cardData.jd_file_path || null };
     if (modal.card?.id) {
       await supabase.from("applications").update(row).eq("id", cardData.id);
-      setCards(prev => ({ ...prev, [columnId]: (prev[columnId] || []).map(c => c.id === cardData.id ? { ...c, ...row } : c) }));
+      setCards(prev => {
+        const next = { ...prev };
+        if (fromColumnId !== toColumnId) {
+          next[fromColumnId] = (next[fromColumnId] || []).filter(c => c.id !== cardData.id);
+          next[toColumnId] = [...(next[toColumnId] || []), row];
+        } else {
+          next[toColumnId] = (next[toColumnId] || []).map(c => c.id === cardData.id ? { ...c, ...row } : c);
+        }
+        return next;
+      });
     } else {
       await supabase.from("applications").insert(row);
-      setCards(prev => ({ ...prev, [columnId]: [...(prev[columnId] || []), row] }));
+      setCards(prev => ({ ...prev, [toColumnId]: [...(prev[toColumnId] || []), row] }));
     }
     setModal(null);
   };
 
   const deleteCard = async cardId => {
     const { columnId } = modal;
+    const existing = (cards[columnId] || []).find(c => c.id === cardId);
+    if (existing?.jd_file_path) await supabase.storage.from("Documents").remove([existing.jd_file_path]);
     await supabase.from("applications").delete().eq("id", cardId);
     setCards(prev => ({ ...prev, [columnId]: (prev[columnId] || []).filter(c => c.id !== cardId) }));
     setModal(null);
@@ -547,7 +640,7 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
           )}
         </div>
       </div>
-      {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} />}
+      {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} columns={columns} userId={session.user.id} />}
     </div>
   );
 }
