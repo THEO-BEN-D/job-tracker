@@ -365,16 +365,11 @@ function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }
           <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: currentCol.color, flexShrink: 0 }} />
-              <div className="status-select-wrap" style={{ flex: 1, position: "relative" }}>
-                <select value={statusId} onChange={e => setStatusId(e.target.value)} className="status-select"
-                  style={{ width: "100%", appearance: "none", WebkitAppearance: "none", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "9px 34px 9px 13px", fontSize: 14, fontWeight: 700, color: currentCol.color, fontFamily: "inherit", cursor: "pointer", outline: "none" }}
-                  onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"}>
-                  {columns.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
-                </select>
-                <svg className="status-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b3b8c2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </div>
+              <select value={statusId} onChange={e => setStatusId(e.target.value)}
+                style={{ flex: 1, appearance: "none", WebkitAppearance: "none", background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "9px 13px", fontSize: 14, fontWeight: 700, color: currentCol.color, fontFamily: "inherit", cursor: "pointer", outline: "none" }}
+                onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"}>
+                {columns.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
+              </select>
             </div>
             <span style={{ fontSize: 12, color: "#9ca3af" }}>This card will be {card?.id ? "moved to" : "added to"} the <strong>{currentCol.label}</strong> column.</span>
           </div>
