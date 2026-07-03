@@ -507,13 +507,78 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn, onDrop, 
   );
 }
 
+// ─── List (Table) View ────────────────────────────────────────────────────────
+const LIST_COLS = "2.2fr 0.9fr 1.1fr 1.6fr 1fr";
+
+function ListView({ columns, cards, onEditCard }) {
+  const [collapsed, setCollapsed] = useState({});
+  const toggle = id => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const daysSince = dateStr => {
+    if (!dateStr) return null;
+    return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  };
+
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: LIST_COLS, padding: "10px 16px", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+        {["Company / Role", "Applied", "Last Activity", "Notes", "Salary"].map(h => (
+          <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</div>
+        ))}
+      </div>
+      {columns.map(col => {
+        const colCards = cards[col.id] || [];
+        const isCollapsed = collapsed[col.id];
+        return (
+          <div key={col.id}>
+            <div onClick={() => toggle(col.id)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", background: col.color + "0d", borderBottom: "1px solid #e5e7eb", borderTop: "1px solid #e5e7eb", cursor: "pointer" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: col.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: 700, fontSize: 11, color: col.color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{col.label}</span>
+              <span style={{ background: col.color + "18", color: col.color, borderRadius: 20, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>{colCards.length}</span>
+              <span style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af" }}>{isCollapsed ? "▸" : "▾"}</span>
+            </div>
+            {!isCollapsed && colCards.length === 0 && (
+              <div style={{ padding: "12px 16px", fontSize: 12, color: "#d1d5db" }}>No applications in this stage</div>
+            )}
+            {!isCollapsed && colCards.map(card => {
+              const days = daysSince(card.date);
+              const stale = days !== null && days > 14 && col.id !== "offer" && col.id !== "rejected";
+              return (
+                <div key={card.id} onClick={() => onEditCard(col.id, card)}
+                  style={{ display: "grid", gridTemplateColumns: LIST_COLS, alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #f3f4f6", cursor: "pointer", fontSize: 13, transition: "background 0.1s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "#111827" }}>{card.company}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>{card.role}</div>
+                  </div>
+                  <div style={{ color: "#6b7280" }}>{card.date ? new Date(card.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}</div>
+                  <div style={{ color: stale ? "#F59E0B" : "#9ca3af", fontWeight: stale ? 700 : 400 }}>{days !== null ? `${stale ? "⚠ " : ""}${days}d ago` : "—"}</div>
+                  <div style={{ color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.notes || "—"}</div>
+                  <div style={{ color: "#059669", fontWeight: 600 }}>{card.salary || "—"}</div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Board Screen ─────────────────────────────────────────────────────────────
+const VIEW_KEY = "jt_board_view";
+
 function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus }) {
   const [modal, setModal] = useState(null);
   const [addingCol, setAddingCol] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [dragOverCol, setDragOverCol] = useState(null);
+  const [view, setView] = useState(() => localStorage.getItem(VIEW_KEY) || "kanban");
   const total = Object.values(cards).flat().length;
+
+  const changeView = v => { setView(v); localStorage.setItem(VIEW_KEY, v); };
 
   // Auto-reopen draft if one exists when board loads
   useEffect(() => {
@@ -601,45 +666,63 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
           <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>Board</div>
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>{total === 0 ? "No applications yet — add your first!" : `${total} application${total !== 1 ? "s" : ""} tracked`}</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 3, gap: 3 }}>
+          {[["kanban", "📋 Kanban"], ["list", "☰ Table"]].map(([key, lbl]) => (
+            <button key={key} onClick={() => changeView(key)}
+              style={{ padding: "6px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: view === key ? "linear-gradient(135deg, #6366f1, #818cf8)" : "transparent", color: view === key ? "#fff" : "#9ca3af", transition: "all 0.15s" }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        {view === "list" && (
+          <button onClick={() => setModal({ columnId: columns[0]?.id, card: null })} style={{ ...btnPrimary, padding: "8px 16px", fontSize: 13 }}>+ Add Application</button>
+        )}
+        <div style={{ marginLeft: view === "list" ? 0 : "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
           {columns.map(col => {
             const count = (cards[col.id] || []).length;
             return count > 0 ? <span key={col.id} style={{ background: col.color + "18", color: col.color, border: `1px solid ${col.color}33`, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{col.label}: {count}</span> : null;
           })}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 14, padding: "24px", overflowX: "auto", alignItems: "flex-start", flex: 1, background: "#f9fafb" }}>
-        {columns.map(col => (
-          <Column key={col.id} col={col} colCards={cards[col.id] || []}
-            onAddCard={colId => setModal({ columnId: colId, card: null })}
-            onEditCard={(colId, card) => setModal({ columnId: colId, card })}
-            onDeleteColumn={deleteColumn}
-            onDrop={handleDrop}
-            onDragOver={e => { e.preventDefault(); setDragOverCol(col.id); }}
-            onDragLeave={() => setDragOverCol(null)}
-            isDragOver={dragOverCol === col.id} />
-        ))}
-        <div style={{ minWidth: 215, flexShrink: 0 }}>
-          {addingCol ? (
-            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-              <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") addColumn(); if (e.key === "Escape") setAddingCol(false); }}
-                placeholder="Column name…" style={{ ...inputStyle, borderColor: "#6366f1" }} />
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={addColumn} style={{ ...btnPrimary, flex: 1, padding: 8, fontSize: 13 }}>Add</button>
-                <button onClick={() => { setAddingCol(false); setNewColName(""); }} style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+
+      {view === "kanban" ? (
+        <div style={{ display: "flex", gap: 14, padding: "24px", overflowX: "auto", alignItems: "flex-start", flex: 1, background: "#f9fafb" }}>
+          {columns.map(col => (
+            <Column key={col.id} col={col} colCards={cards[col.id] || []}
+              onAddCard={colId => setModal({ columnId: colId, card: null })}
+              onEditCard={(colId, card) => setModal({ columnId: colId, card })}
+              onDeleteColumn={deleteColumn}
+              onDrop={handleDrop}
+              onDragOver={e => { e.preventDefault(); setDragOverCol(col.id); }}
+              onDragLeave={() => setDragOverCol(null)}
+              isDragOver={dragOverCol === col.id} />
+          ))}
+          <div style={{ minWidth: 215, flexShrink: 0 }}>
+            {addingCol ? (
+              <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") addColumn(); if (e.key === "Escape") setAddingCol(false); }}
+                  placeholder="Column name…" style={{ ...inputStyle, borderColor: "#6366f1" }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={addColumn} style={{ ...btnPrimary, flex: 1, padding: 8, fontSize: 13 }}>Add</button>
+                  <button onClick={() => { setAddingCol(false); setNewColName(""); }} style={{ flex: 1, padding: 8, borderRadius: 8, border: "1px solid #e5e7eb", background: "#f9fafb", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <button onClick={() => setAddingCol(true)}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 12, border: "1.5px dashed #d1d5db", background: "transparent", color: "#9ca3af", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
-              onMouseEnter={e => { e.target.style.borderColor = "#6366f1"; e.target.style.color = "#6366f1"; e.target.style.background = "#eef2ff"; }}
-              onMouseLeave={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.color = "#9ca3af"; e.target.style.background = "transparent"; }}>
-              + Add Column
-            </button>
-          )}
+            ) : (
+              <button onClick={() => setAddingCol(true)}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 12, border: "1.5px dashed #d1d5db", background: "transparent", color: "#9ca3af", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+                onMouseEnter={e => { e.target.style.borderColor = "#6366f1"; e.target.style.color = "#6366f1"; e.target.style.background = "#eef2ff"; }}
+                onMouseLeave={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.color = "#9ca3af"; e.target.style.background = "transparent"; }}>
+                + Add Column
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f9fafb" }}>
+          <ListView columns={columns} cards={cards} onEditCard={(colId, card) => setModal({ columnId: colId, card })} />
+        </div>
+      )}
       {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} columns={columns} userId={session.user.id} />}
     </div>
   );
