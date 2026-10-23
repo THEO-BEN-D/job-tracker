@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { supabase } from "./supabase";
 
 const DEFAULT_COLUMNS = [
@@ -285,7 +287,7 @@ function Sidebar({ screen, setScreen, session, onSignOut, newLeads = 0 }) {
 // ─── Card Modal ───────────────────────────────────────────────────────────────
 const DRAFT_KEY = "jt_card_draft";
 
-function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }) {
+function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId, cv, onOpenCv }) {
   const [form, setForm] = useState(() => {
     if (card?.id) return card;
     try {
@@ -419,6 +421,7 @@ function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }
           )}
           <input ref={jdFileRef} type="file" accept="application/pdf" onChange={handleJdSelect} style={{ display: "none" }} />
         </div>
+        {card?.id && <CvSection card={{ ...card, url: form.url }} columnId={card.column_id || columnId} cv={cv} onOpen={() => onOpenCv(card)} />}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={lbl}>Date Applied</label>
           <input type="date" value={form.date || ""} onChange={set("date")} style={inp}
@@ -444,8 +447,213 @@ function CardForm({ card, onSave, onClose, onDelete, columnId, columns, userId }
   );
 }
 
+// ─── Tailored CV ──────────────────────────────────────────────────────────────
+const CV_CSS = `
+.cvdoc{font-family:Inter,-apple-system,sans-serif;color:#111827;font-size:12.5px;line-height:1.45}
+.cvdoc h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.cvdoc h2{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#6366f1;border-bottom:1.5px solid #e0e7ff;padding-bottom:3px;margin:16px 0 8px}
+.cvdoc h3{font-size:13px;font-weight:700;margin:10px 0 1px}
+.cvdoc p{margin:2px 0 4px}
+.cvdoc ul{margin:3px 0 6px;padding-left:16px}
+.cvdoc li{margin:1px 0}
+.cvdoc em{color:#6b7280}
+.cvdoc a{color:#4f46e5;text-decoration:none}
+.cvdoc.letter{font-size:13.5px;line-height:1.6}
+.cvdoc.letter p{margin:0 0 12px}
+`;
+
+const mdToHtml = md => DOMPurify.sanitize(marked.parse(md || ""));
+
+function printDoc(title, md, isLetter) {
+  const w = window.open("", "_blank");
+  if (!w) { alert("Allow pop-ups to download the PDF."); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title.replace(/</g, "")}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>@page{size:A4;margin:14mm 15mm}body{margin:0}${CV_CSS}</style></head>
+<body><div class="cvdoc${isLetter ? " letter" : ""}">${mdToHtml(md)}</div>
+<script>document.fonts.ready.then(()=>setTimeout(()=>window.print(),150))<\/script></body></html>`);
+  w.document.close();
+}
+
+function CvViewer({ card, onClose, onChanged }) {
+  const [versions, setVersions] = useState([]);
+  const [idx, setIdx] = useState(0);
+  const [tab, setTab] = useState("cv");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [request, setRequest] = useState("");
+  const [makeRule, setMakeRule] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const { data } = await supabase.from("tailored_docs").select("*").eq("application_id", card.id).order("version", { ascending: false });
+    setVersions(data || []);
+    setIdx(0);
+  };
+  useEffect(() => { load(); }, [card.id]);
+
+  const doc = versions[idx];
+  const isLatest = doc?.is_latest;
+  const field = tab === "cv" ? "cv_markdown" : "cover_letter_markdown";
+  const pending = versions[0]?.change_status === "pending";
+
+  const startEdit = () => { setDraft(doc[field] || ""); setEditing(true); };
+  const saveEdit = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("tailored_docs").update({ [field]: draft, updated_at: new Date().toISOString() }).eq("id", doc.id);
+    setBusy(false);
+    if (error) { alert("Couldn't save: " + error.message); return; }
+    setVersions(prev => prev.map(v => v.id === doc.id ? { ...v, [field]: draft } : v));
+    setEditing(false);
+  };
+
+  const sendRequest = async () => {
+    if (!request.trim()) return;
+    setBusy(true);
+    const latest = versions[0];
+    const { error } = await supabase.from("tailored_docs").update({ change_request: request.trim(), make_rule: makeRule, change_status: "pending", updated_at: new Date().toISOString() }).eq("id", latest.id);
+    setBusy(false);
+    if (error) { alert("Couldn't send: " + error.message); return; }
+    setVersions(prev => prev.map((v, i) => i === 0 ? { ...v, change_request: request.trim(), make_rule: makeRule, change_status: "pending" } : v));
+    setRequest(""); setMakeRule(false);
+    onChanged && onChanged();
+  };
+
+  const cancelRequest = async () => {
+    const latest = versions[0];
+    await supabase.from("tailored_docs").update({ change_status: null, change_request: null, make_rule: false }).eq("id", latest.id);
+    setVersions(prev => prev.map((v, i) => i === 0 ? { ...v, change_status: null, change_request: null, make_rule: false } : v));
+    onChanged && onChanged();
+  };
+
+  const tabBtn = key => ({ padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: tab === key ? "linear-gradient(135deg, #6366f1, #818cf8)" : "transparent", color: tab === key ? "#fff" : "#9ca3af" });
+  const smallBtn = { border: "1px solid #e5e7eb", background: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 700, color: "#6b7280", cursor: "pointer", fontFamily: "inherit" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#f3f4f6", zIndex: 1100, overflowY: "auto" }}>
+      <style>{CV_CSS}</style>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 60px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <button onClick={onClose} style={smallBtn}>← Back</button>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>Tailored CV · {card.company}</div>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>{card.role}</div>
+          </div>
+          {versions.length > 1 && (
+            <select value={idx} onChange={e => { setIdx(Number(e.target.value)); setEditing(false); }}
+              style={{ marginLeft: "auto", border: "1px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 12, fontWeight: 600, fontFamily: "inherit", color: "#374151" }}>
+              {versions.map((v, i) => <option key={v.id} value={i}>Version {v.version}{v.is_latest ? " (latest)" : ""} · {new Date(v.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</option>)}
+            </select>
+          )}
+        </div>
+
+        {!doc ? (
+          <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#9ca3af", border: "1px solid #e5e7eb" }}>Loading…</div>
+        ) : doc.status === "needs_link" ? (
+          <div style={{ background: "#fffbeb", borderRadius: 14, padding: 24, color: "#92400e", border: "1px solid #fde68a", fontSize: 14 }}>
+            <b>No posting found.</b> {doc.note || "Add the job posting link to this card; the CV will be written on the next run."}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 18, alignItems: "start" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", background: "#e5e7eb", borderRadius: 10, padding: 3 }}>
+                  <button style={tabBtn("cv")} onClick={() => { setTab("cv"); setEditing(false); }}>CV</button>
+                  <button style={tabBtn("letter")} onClick={() => { setTab("letter"); setEditing(false); }}>Cover letter</button>
+                </div>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                  {doc[field] && !editing && isLatest && <button style={smallBtn} onClick={startEdit}>✎ Edit</button>}
+                  {editing && <button style={smallBtn} onClick={() => setEditing(false)}>Cancel</button>}
+                  {editing && <button disabled={busy} style={{ ...smallBtn, background: "#6366f1", color: "#fff", border: "none" }} onClick={saveEdit}>Save</button>}
+                  {doc[field] && !editing && <button style={{ ...smallBtn, background: "#6366f1", color: "#fff", border: "none" }} onClick={() => printDoc(`${tab === "cv" ? "CV" : "Cover letter"} - Theo Bender - ${card.company}`, doc[field], tab === "letter")}>↓ PDF</button>}
+                </div>
+              </div>
+              <div style={{ background: "#fff", borderRadius: 6, boxShadow: "0 4px 18px rgba(17,24,39,0.08)", padding: editing ? 0 : "36px 40px", minHeight: 500 }}>
+                {editing ? (
+                  <textarea value={draft} onChange={e => setDraft(e.target.value)}
+                    style={{ width: "100%", minHeight: 700, border: "none", outline: "none", padding: 24, fontSize: 13, lineHeight: 1.6, fontFamily: "ui-monospace, Menlo, monospace", resize: "vertical", borderRadius: 6, boxSizing: "border-box" }} />
+                ) : doc[field] ? (
+                  <div className={`cvdoc${tab === "letter" ? " letter" : ""}`} dangerouslySetInnerHTML={{ __html: mdToHtml(doc[field]) }} />
+                ) : (
+                  <div style={{ color: "#9ca3af", fontSize: 14 }}>
+                    No cover letter for this role.{doc.cover_letter_reason ? ` ${doc.cover_letter_reason}` : ""}
+                    <div style={{ fontSize: 12, marginTop: 6 }}>Want one anyway? Ask for it in "Request changes".</div>
+                  </div>
+                )}
+              </div>
+              {editing && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}># name · ## section · ### role · "- " bullet · **bold** · *italic*</div>}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 14, padding: 16, border: "1px solid #e5e7eb" }}>
+                <div style={{ ...labelStyle, marginBottom: 8 }}>Request changes</div>
+                {pending ? (
+                  <div style={{ fontSize: 13, color: "#374151" }}>
+                    <div style={{ background: "#eef2ff", borderRadius: 10, padding: "10px 12px", color: "#4338ca", marginBottom: 8 }}>
+                      <b>Waiting for the next run.</b>
+                      <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>"{versions[0].change_request}"</div>
+                      {versions[0].make_rule && <div style={{ marginTop: 4, fontSize: 12 }}>✓ Will also become a rule for every future CV</div>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Can't wait? Ask Claude: "run the CV tailoring task now".</div>
+                    <button style={smallBtn} onClick={cancelRequest}>Cancel request</button>
+                  </div>
+                ) : (
+                  <>
+                    <textarea value={request} onChange={e => setRequest(e.target.value)} rows={5}
+                      placeholder={'e.g. "Put the Nice launch first, shorten the summary, make the letter less formal"'}
+                      style={{ ...inputStyle, fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
+                      onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
+                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "#374151", margin: "10px 0", cursor: "pointer" }}>
+                      <input type="checkbox" checked={makeRule} onChange={e => setMakeRule(e.target.checked)} style={{ marginTop: 2 }} />
+                      <span><b>Make this a rule</b> — apply it to every future CV too</span>
+                    </label>
+                    <button disabled={busy || !request.trim()} onClick={sendRequest} style={{ ...btnPrimary, width: "100%", fontSize: 13, opacity: request.trim() ? 1 : 0.5 }}>Send request</button>
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>Applied on the next run, as a new version. This one is kept.</div>
+                  </>
+                )}
+              </div>
+              {doc.match_notes && (
+                <div style={{ background: "#fff", borderRadius: 14, padding: 16, border: "1px solid #e5e7eb" }}>
+                  <div style={{ ...labelStyle, marginBottom: 8 }}>Notes for you</div>
+                  <div className="cvdoc" style={{ fontSize: 12.5 }} dangerouslySetInnerHTML={{ __html: mdToHtml(doc.match_notes) }} />
+                  {doc.cover_letter_reason && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}><b>Cover letter:</b> {doc.cover_letter_reason}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CvSection({ card, columnId, cv, onOpen }) {
+  const box = { display: "flex", alignItems: "center", gap: 12, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "12px 14px" };
+  let icon = "📝", title, sub, action = null;
+  if (cv && cv.status === "needs_link") { icon = "⚠️"; title = "Posting link needed"; sub = "Add the job URL above and save; the CV is written on the next run."; }
+  else if (cv) {
+    title = `Tailored CV ready · v${cv.version}`;
+    sub = cv.change_status === "pending" ? "Changes requested — applied on the next run" : cv.has_letter ? "CV + cover letter" : "CV only";
+    action = <button onClick={onOpen} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 12 }}>Open</button>;
+  } else if (columnId === "wishlist") { icon = "⏳"; title = "Tailored CV coming"; sub = card.url ? "Written on the next run of the CV tailoring task." : "Add the job URL first so the posting can be read."; }
+  else { title = "No tailored CV"; sub = "Move this card to Wishlist to get one."; }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={labelStyle}>Tailored CV</label>
+      <div style={box}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{title}</div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{sub}</div>
+        </div>
+        {action}
+      </div>
+    </div>
+  );
+}
+
 // ─── Card ─────────────────────────────────────────────────────────────────────
-function KanbanCard({ card, onClick, onDragStart, onDragEnd }) {
+function KanbanCard({ card, cv, onClick, onDragStart, onDragEnd }) {
   const [hovered, setHovered] = useState(false);
   const date = card.date ? new Date(card.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
   return (
@@ -464,13 +672,15 @@ function KanbanCard({ card, onClick, onDragStart, onDragEnd }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {date && <div style={{ fontSize: 10, color: "#d1d5db", marginTop: 2 }}>{date}</div>}
         {card.jd_file_path && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>📎 JD</div>}
+        {cv && cv.status === "ready" && <div style={{ fontSize: 10, color: cv.change_status === "pending" ? "#b45309" : "#6366f1", fontWeight: 700, marginTop: 2 }}>{cv.change_status === "pending" ? "✎ CV changes pending" : "📄 CV ready"}</div>}
+        {cv && cv.status === "needs_link" && <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700, marginTop: 2 }}>⚠️ Add posting link</div>}
       </div>
     </div>
   );
 }
 
 // ─── Column ───────────────────────────────────────────────────────────────────
-function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn, onDrop, onDragOver, onDragLeave, isDragOver }) {
+function Column({ col, colCards, cvMap = {}, onAddCard, onEditCard, onDeleteColumn, onDrop, onDragOver, onDragLeave, isDragOver }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
   const [dragCard, setDragCard] = useState(null);
@@ -500,7 +710,7 @@ function Column({ col, colCards, onAddCard, onEditCard, onDeleteColumn, onDrop, 
         onDragLeave={onDragLeave}
         style={{ background: isDragOver ? c + "0a" : "#f9fafb", border: `1px solid ${isDragOver ? c + "44" : "#e5e7eb"}`, borderTop: "none", borderRadius: "0 0 12px 12px", padding: 8, display: "flex", flexDirection: "column", gap: 7, minHeight: 80, transition: "all 0.15s" }}>
         {colCards.map(card => (
-          <KanbanCard key={card.id} card={card}
+          <KanbanCard key={card.id} card={card} cv={cvMap[card.id]}
             onClick={() => onEditCard(col.id, card)}
             onDragStart={(e, c) => { setDragCard(c); e.dataTransfer.setData("cardId", c.id); e.dataTransfer.setData("fromColumnId", col.id); }}
             onDragEnd={() => setDragCard(null)} />
@@ -582,6 +792,16 @@ const VIEW_KEY = "jt_board_view";
 
 function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus }) {
   const [modal, setModal] = useState(null);
+  const [cvMap, setCvMap] = useState({});
+  const [cvCard, setCvCard] = useState(null);
+
+  const loadCvMap = async () => {
+    const { data } = await supabase.from("tailored_docs").select("application_id, version, status, change_status, cover_letter_markdown").eq("user_id", session.user.id).eq("is_latest", true);
+    const map = {};
+    (data || []).forEach(d => { map[d.application_id] = { version: d.version, status: d.status, change_status: d.change_status, has_letter: !!d.cover_letter_markdown }; });
+    setCvMap(map);
+  };
+  useEffect(() => { loadCvMap(); }, []);
   const [dragOverCol, setDragOverCol] = useState(null);
   const [view, setView] = useState(() => localStorage.getItem(VIEW_KEY) || "kanban");
   const total = Object.values(cards).flat().length;
@@ -686,7 +906,7 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
       {view === "kanban" ? (
         <div style={{ display: "flex", gap: 14, padding: "24px", overflowX: "auto", alignItems: "flex-start", flex: 1, background: "#f9fafb" }}>
           {columns.map(col => (
-            <Column key={col.id} col={col} colCards={cards[col.id] || []}
+            <Column key={col.id} col={col} colCards={cards[col.id] || []} cvMap={cvMap}
               onAddCard={colId => setModal({ columnId: colId, card: null })}
               onEditCard={(colId, card) => setModal({ columnId: colId, card })}
               onDeleteColumn={deleteColumn}
@@ -701,7 +921,9 @@ function BoardScreen({ columns, cards, setCards, setColumns, session, saveStatus
           <ListView columns={columns} cards={cards} onEditCard={(colId, card) => setModal({ columnId: colId, card })} />
         </div>
       )}
-      {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} columns={columns} userId={session.user.id} />}
+      {modal && <CardForm card={modal.card} onSave={saveCard} onClose={() => setModal(null)} onDelete={deleteCard} columnId={modal.columnId} columns={columns} userId={session.user.id}
+        cv={modal.card?.id ? cvMap[modal.card.id] : null} onOpenCv={c => setCvCard(c)} />}
+      {cvCard && <CvViewer card={cvCard} onClose={() => { setCvCard(null); loadCvMap(); }} onChanged={loadCvMap} />}
     </div>
   );
 }
