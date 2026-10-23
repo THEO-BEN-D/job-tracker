@@ -234,11 +234,12 @@ function HomeScreen({ onOpen, session }) {
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({ screen, setScreen, session, onSignOut }) {
+function Sidebar({ screen, setScreen, session, onSignOut, newLeads = 0 }) {
   const email = session?.user?.email || "";
   const initial = email.charAt(0).toUpperCase();
   const navItems = [
     { id: "board", icon: "📋", label: "Board" },
+    { id: "leads", icon: "🎯", label: "Potential roles", badge: newLeads },
     { id: "documents", icon: "📁", label: "My Documents" },
     { id: "trash", icon: "🗑️", label: "Trash" },
   ];
@@ -253,14 +254,16 @@ function Sidebar({ screen, setScreen, session, onSignOut }) {
 
       <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 10px 6px", marginTop: 4 }}>Menu</div>
 
-      {navItems.map(({ id, icon, label }) => (
+      {navItems.map(({ id, icon, label, badge }) => (
         <button key={id} onClick={() => setScreen(id)}
           style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "none", width: "100%", textAlign: "left", fontFamily: "inherit", marginBottom: 2, transition: "all 0.15s", background: screen === id ? "#eef2ff" : "none", color: screen === id ? "#6366f1" : "#9ca3af" }}
           onMouseEnter={e => { if (screen !== id) e.currentTarget.style.background = "#f3f4f6"; if (screen !== id) e.currentTarget.style.color = "#6b7280"; }}
           onMouseLeave={e => { if (screen !== id) e.currentTarget.style.background = "none"; if (screen !== id) e.currentTarget.style.color = "#9ca3af"; }}>
           <span style={{ fontSize: 15, width: 20, textAlign: "center", flexShrink: 0 }}>{icon}</span>
           {label}
-          {screen === id && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", marginLeft: "auto" }} />}
+          {badge > 0
+            ? <span style={{ marginLeft: "auto", background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "2px 7px" }}>{badge}</span>
+            : screen === id && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", marginLeft: "auto" }} />}
         </button>
       ))}
 
@@ -1036,6 +1039,193 @@ function TrashScreen({ session, onRestore }) {
   );
 }
 
+// ─── Potential Roles Screen ───────────────────────────────────────────────────
+const ROLE_TYPES = [
+  { id: "all", label: "All types" },
+  { id: "founder_associate", label: "Founder Associate" },
+  { id: "chief_of_staff", label: "Chief of Staff" },
+  { id: "ai_deployment", label: "AI Deployment" },
+];
+const ROLE_TYPE_LABEL = { founder_associate: "Founder Associate", chief_of_staff: "Chief of Staff", ai_deployment: "AI Deployment", other: "Other" };
+const CITIES = ["All cities", "Paris", "Barcelona"];
+
+function Seg({ options, value, onChange }) {
+  return (
+    <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 3 }}>
+      {options.map(o => (
+        <button key={o.id} onClick={() => onChange(o.id)}
+          style={{ padding: "6px 12px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: value === o.id ? "linear-gradient(135deg, #6366f1, #818cf8)" : "transparent", color: value === o.id ? "#fff" : "#9ca3af", transition: "all 0.15s" }}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LeadCard({ lead, isFresh, onAdd, onKeep, onDelete, busy }) {
+  const strong = lead.fit === "strong";
+  const btn = { border: "none", borderRadius: 9, padding: "9px 10px", fontSize: 12, fontWeight: 700, cursor: busy ? "default" : "pointer", fontFamily: "inherit", opacity: busy ? 0.6 : 1 };
+  const chip = { fontSize: 11, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "3px 8px" };
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>
+            {lead.company}
+            {isFresh && <span style={{ fontSize: 9, fontWeight: 800, color: "#059669", background: "#ecfdf5", borderRadius: 4, padding: "1px 5px", marginLeft: 6 }}>NEW</span>}
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginTop: 2, lineHeight: 1.3 }}>{lead.role}</div>
+        </div>
+        {lead.fit && (
+          <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: "3px 9px", whiteSpace: "nowrap", background: strong ? "#ecfdf5" : "#fffbeb", color: strong ? "#059669" : "#b45309" }}>
+            {strong ? "Strong fit" : "Worth a look"}
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {lead.role_type && <span style={{ ...chip, background: "#eef2ff", color: "#6366f1" }}>{ROLE_TYPE_LABEL[lead.role_type] || lead.role_type}</span>}
+        {(lead.location || lead.city) && <span style={chip}>📍 {lead.location || lead.city}</span>}
+        <span style={chip}>{lead.salary || "Salary not listed"}</span>
+      </div>
+      {lead.why_fit && (
+        <div style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5, background: "#f9fafb", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9ca3af", marginBottom: 3 }}>Why it fits</div>
+          {lead.why_fit}
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: "#9ca3af" }}>
+        {lead.source ? `Source: ${lead.source}` : ""}{lead.posted_on ? ` · posted ${lead.posted_on}` : ""} · found {new Date(lead.first_seen_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button disabled={busy} onClick={() => onAdd(lead)} style={{ ...btn, flex: 1, background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff" }}>＋ Add to Wishlist</button>
+        {lead.status === "new" && (
+          <button disabled={busy} onClick={() => onKeep(lead)} style={{ ...btn, background: "#eef2ff", color: "#6366f1" }}>Keep in list</button>
+        )}
+        {lead.url && (
+          <a href={lead.url} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: "#f3f4f6", color: "#6b7280", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Open ↗</a>
+        )}
+        <button disabled={busy} onClick={() => onDelete(lead)} title="Delete from list" style={{ ...btn, background: "none", color: "#d1d5db" }}
+          onMouseEnter={e => e.currentTarget.style.color = "#EF4444"} onMouseLeave={e => e.currentTarget.style.color = "#d1d5db"}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+function LeadsScreen({ session, columns, setCards, onCountChange, showStatus }) {
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [city, setCity] = useState("All cities");
+  const [type, setType] = useState("all");
+  const [query, setQuery] = useState("");
+  const [busyId, setBusyId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("role_leads").select("*").eq("user_id", session.user.id).in("status", ["new", "kept"]).order("first_seen_at", { ascending: false });
+    setLeads(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+  useEffect(() => { onCountChange(leads.filter(l => l.status === "new").length); }, [leads]);
+
+  const setStatus = async (lead, status) => {
+    const { error } = await supabase.from("role_leads").update({ status, status_changed_at: new Date().toISOString() }).eq("id", lead.id);
+    if (error) { showStatus("Couldn't save — try again"); return false; }
+    return true;
+  };
+
+  const handleAdd = async lead => {
+    setBusyId(lead.id);
+    const wishlistId = (columns.find(c => c.id === "wishlist") || columns[0]).id;
+    const row = {
+      id: Date.now().toString(), column_id: wishlistId, user_id: session.user.id,
+      company: lead.company, role: lead.role, location: lead.location || lead.city || null,
+      salary: lead.salary || null, url: lead.url || null, date: null,
+      notes: [lead.why_fit, lead.source ? `Found via ${lead.source}` : null].filter(Boolean).join("\n") || null,
+      jd_file_path: null,
+    };
+    const { error } = await supabase.from("applications").insert(row);
+    if (error) { showStatus("Couldn't add to Wishlist"); setBusyId(null); return; }
+    await setStatus(lead, "added");
+    setCards(prev => ({ ...prev, [wishlistId]: [...(prev[wishlistId] || []), row] }));
+    setLeads(prev => prev.filter(l => l.id !== lead.id));
+    showStatus(`${lead.company} added to Wishlist`);
+    setBusyId(null);
+  };
+
+  const handleKeep = async lead => {
+    setBusyId(lead.id);
+    if (await setStatus(lead, "kept")) setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: "kept" } : l));
+    setBusyId(null);
+  };
+
+  const handleDelete = async lead => {
+    setBusyId(lead.id);
+    if (await setStatus(lead, "deleted")) {
+      setLeads(prev => prev.filter(l => l.id !== lead.id));
+      showStatus("Removed — it won't come back");
+    }
+    setBusyId(null);
+  };
+
+  const q = query.trim().toLowerCase();
+  const visible = leads.filter(l =>
+    (city === "All cities" || (l.city || "").toLowerCase().includes(city.toLowerCase())) &&
+    (type === "all" || l.role_type === type) &&
+    (!q || `${l.company} ${l.role}`.toLowerCase().includes(q))
+  );
+  const newOnes = visible.filter(l => l.status === "new");
+  const kept = visible.filter(l => l.status === "kept");
+  const latestRun = leads.reduce((m, l) => Math.max(m, new Date(l.first_seen_at).getTime()), 0);
+  const isFresh = l => latestRun && Date.now() - new Date(l.first_seen_at).getTime() < 26 * 3600 * 1000;
+
+  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 };
+  const sectionTitle = (label, n) => (
+    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.08em", textTransform: "uppercase", margin: "4px 0 10px" }}>{label} · {n}</div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 24px", flexShrink: 0 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-0.02em" }}>Potential roles</div>
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>
+          Found automatically every evening · {leads.filter(l => l.status === "new").length} new to review · {leads.filter(l => l.status === "kept").length} kept
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, alignItems: "center" }}>
+          <Seg options={CITIES.map(c => ({ id: c, label: c }))} value={city} onChange={setCity} />
+          <Seg options={ROLE_TYPES} value={type} onChange={setType} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search company or role…"
+            style={{ marginLeft: "auto", border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", fontSize: 13, width: 220, fontFamily: "inherit", outline: "none" }}
+            onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#e5e7eb"} />
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 24, background: "#f9fafb" }}>
+        {loading ? (
+          <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>Loading…</div>
+        ) : leads.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🎯</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#6b7280" }}>Nothing to review</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>New roles show up here after each evening's search.</div>
+          </div>
+        ) : (
+          <>
+            {sectionTitle("New to review", newOnes.length)}
+            {newOnes.length === 0
+              ? <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 24 }}>All caught up.</div>
+              : <div style={{ ...grid, marginBottom: 28 }}>{newOnes.map(l => <LeadCard key={l.id} lead={l} isFresh={isFresh(l)} busy={busyId === l.id} onAdd={handleAdd} onKeep={handleKeep} onDelete={handleDelete} />)}</div>}
+            {sectionTitle("In your list", kept.length)}
+            {kept.length === 0
+              ? <div style={{ fontSize: 13, color: "#9ca3af" }}>Roles you choose to keep will stay here.</div>
+              : <div style={grid}>{kept.map(l => <LeadCard key={l.id} lead={l} isFresh={false} busy={busyId === l.id} onAdd={handleAdd} onKeep={handleKeep} onDelete={handleDelete} />)}</div>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -1044,6 +1234,7 @@ export default function App() {
   const [cards, setCards] = useState({});
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [newLeads, setNewLeads] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1065,6 +1256,8 @@ export default function App() {
       const userId = session.user.id;
       const { data: colData } = await supabase.from("columns_config").select("*").eq("user_id", userId).order("position");
       const { data: appData } = await supabase.from("applications").select("*").eq("user_id", userId).is("deleted_at", null).order("created_at");
+      const { count: leadCount } = await supabase.from("role_leads").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "new");
+      setNewLeads(leadCount || 0);
       if (colData && colData.length > 0) setColumns(colData);
       else await supabase.from("columns_config").insert(DEFAULT_COLUMNS.map(c => ({ ...c, user_id: userId })));
       if (appData) {
@@ -1108,14 +1301,16 @@ export default function App() {
     </div>
   );
 
-  const appScreens = ["board", "stats", "documents", "trash"];
+  const appScreens = ["board", "stats", "leads", "documents", "trash"];
   if (!appScreens.includes(screen)) setScreen("board");
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "Inter, -apple-system, sans-serif" }}>
-      <Sidebar screen={screen} setScreen={setScreen} session={session} onSignOut={signOut} />
+      <Sidebar screen={screen} setScreen={setScreen} session={session} onSignOut={signOut} newLeads={newLeads} />
       <div style={{ marginLeft: 220, flex: 1, overflow: "hidden" }}>
         {screen === "board" && <BoardScreen columns={columns} cards={cards} setCards={setCards} setColumns={setColumns} session={session} saveStatus={saveStatus} />}
+
+        {screen === "leads" && <LeadsScreen session={session} columns={columns} setCards={setCards} onCountChange={setNewLeads} showStatus={showStatus} />}
 
         {screen === "documents" && <DocumentsScreen session={session} />}
 
