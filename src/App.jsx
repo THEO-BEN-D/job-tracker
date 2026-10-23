@@ -462,7 +462,8 @@ const CV_CSS = `
 .cvdoc.letter p{margin:0 0 12px}
 `;
 
-const mdToHtml = md => DOMPurify.sanitize(marked.parse(md || ""));
+// breaks: true keeps the header lines (headline, contact, languages) on separate lines
+const mdToHtml = md => DOMPurify.sanitize(marked.parse(md || "", { breaks: true }));
 
 function printDoc(title, md, isLetter) {
   const w = window.open("", "_blank");
